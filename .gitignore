@@ -1,5 +1,13 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# AI-generated content (keep folders, ignore files)
+/generated/cases/*.json
+/public/generated/portraits/*.png
+/public/generated/portraits/*.jpg
+/public/generated/portraits/*.jpeg
+/public/generated/portraits/*.webp
+/public/generated/videos/*.mp4
+
 # dependencies
 /node_modules
 /.pnp

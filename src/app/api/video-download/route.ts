@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { saveVideoToCache } from "@/lib/generatedCache";
 
 export async function GET(req: NextRequest) {
   try {
     const uri = req.nextUrl.searchParams.get("uri");
+    const setting = req.nextUrl.searchParams.get("setting") ?? "unknown";
+    const location = req.nextUrl.searchParams.get("location") ?? "scene";
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!uri || !apiKey) {
@@ -26,7 +29,12 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const buffer = await response.arrayBuffer();
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Save video to disk for reuse
+    const savedUrl = saveVideoToCache(setting, location, buffer);
+    console.log("💾  Saved video →", savedUrl);
 
     return new NextResponse(buffer, {
       headers: {

@@ -16,7 +16,6 @@ export default function LoadingScreen() {
     quizAnswers,
     setCrimeCase,
     setSuspectPortrait,
-    setVideoOperationName,
     setScreen,
   } = useGameStore();
   const [currentStep, setCurrentStep] = useState(0);
@@ -68,9 +67,9 @@ export default function LoadingScreen() {
                   setting: quizAnswers!.setting,
                 }),
               });
-              const { imageData } = await portraitRes.json();
-              if (imageData) {
-                setSuspectPortrait(i, imageData);
+              const { imageUrl } = await portraitRes.json();
+              if (imageUrl) {
+                setSuspectPortrait(i, imageUrl);
               }
             } catch {
               // Portrait generation failed, continue without it
@@ -81,24 +80,7 @@ export default function LoadingScreen() {
         await Promise.all(portraitPromises);
         await completeStep(1);
 
-        // Step 3: Start video generation (non-blocking)
-        try {
-          const videoRes = await fetch("/api/generate-video", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              crimeSceneDescription: caseData.crimeSceneDescription,
-              setting: quizAnswers!.setting,
-              location: caseData.location,
-            }),
-          });
-          const videoData = await videoRes.json();
-          if (videoData.operationId) {
-            setVideoOperationName(videoData.operationId);
-          }
-        } catch {
-          // Video generation failed, continue without it
-        }
+        // Veo video generation disabled for now
         await completeStep(2);
 
         // Step 4: Finalize
@@ -121,7 +103,7 @@ export default function LoadingScreen() {
     setGlitchActive(true);
     setTimeout(() => setGlitchActive(false), 2000);
     generate();
-  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setVideoOperationName, setScreen]);
+  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setScreen]);
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden">

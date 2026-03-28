@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { storeOperation } from "@/lib/videoCache";
+import { getCachedVideoUrl } from "@/lib/generatedCache";
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +27,13 @@ export async function POST(req: NextRequest) {
     };
 
     const vibe = settingVibes[setting] || "dark thriller atmosphere";
+
+    // Return cached video if already generated for this setting + location
+    const cachedVideoUrl = getCachedVideoUrl(setting, location);
+    if (cachedVideoUrl) {
+      console.log("🗂️  Serving cached video:", cachedVideoUrl);
+      return NextResponse.json({ cachedUrl: cachedVideoUrl, done: true });
+    }
 
     const prompt = `A slow, cinematic crime scene walkthrough video. ${vibe}.
 

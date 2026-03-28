@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useGameStore } from "@/store/gameStore";
 
 const CLUE_ICONS = { obvious: "🔍", misleading: "🔍", key: "🔍" };
@@ -9,53 +9,19 @@ export default function CaseFileScreen() {
   const {
     crimeCase,
     quizAnswers,
-    videoOperationName,
-    videoUrl,
-    setVideoUrl,
     setScreen,
   } = useGameStore();
   const [visible, setVisible] = useState(false);
   const [stampVisible, setStampVisible] = useState(false);
-  const [videoLoading, setVideoLoading] = useState(!!videoOperationName);
-  const pollRef = useRef<ReturnType<typeof setInterval>>(null);
 
-  const pollVideo = useCallback(async () => {
-    if (!videoOperationName || videoUrl) return;
-
-    try {
-      const res = await fetch(
-        `/api/video-status?id=${encodeURIComponent(videoOperationName)}`
-      );
-      const data = await res.json();
-
-      if (data.done && data.videoUri) {
-        const proxyUrl = `/api/video-download?uri=${encodeURIComponent(data.videoUri)}`;
-        setVideoUrl(proxyUrl);
-        setVideoLoading(false);
-        if (pollRef.current) clearInterval(pollRef.current);
-      } else if (data.error) {
-        setVideoLoading(false);
-        if (pollRef.current) clearInterval(pollRef.current);
-      }
-    } catch {
-      // keep polling
-    }
-  }, [videoOperationName, videoUrl, setVideoUrl]);
+  // Hardcoded crime scene video — place your video at public/crime-scene.mp4
+  const videoUrl = "/crime-scene.mp4";
+  const videoLoading = false;
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 300);
     setTimeout(() => setStampVisible(true), 1000);
   }, []);
-
-  useEffect(() => {
-    if (videoOperationName && !videoUrl) {
-      pollRef.current = setInterval(pollVideo, 10000);
-      pollVideo();
-    }
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [videoOperationName, videoUrl, pollVideo]);
 
   if (!crimeCase || !quizAnswers) return null;
 
