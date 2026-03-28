@@ -83,7 +83,7 @@ export default function InterrogationScreen() {
         }
 
         if (liveClientRef.current) {
-          liveClientRef.current.disconnect();
+          liveClientRef.current.disconnect(true);
         }
 
         const client = new LiveApiClient({
@@ -129,7 +129,7 @@ export default function InterrogationScreen() {
           `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`
         );
 
-        await client.connect(apiKeyRef.current, systemPrompt, suspectIdx);
+        await client.connect(apiKeyRef.current, systemPrompt, suspectIdx, suspect.gender ?? "male");
         liveClientRef.current = client;
 
         // If setupComplete hasn't arrived in 10 seconds, give up

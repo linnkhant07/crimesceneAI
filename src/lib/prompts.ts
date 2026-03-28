@@ -43,7 +43,8 @@ Generate a JSON object (and ONLY a JSON object, no markdown, no backticks) with 
       "personality": "brief personality traits, 1 sentence",
       "alibi": "their stated alibi",
       "isGuilty": false,
-      "secretMotive": "why they COULD have done it but didn't (for red herrings) or why they DID do it (for the guilty one)"
+      "secretMotive": "why they COULD have done it but didn't (for red herrings) or why they DID do it (for the guilty one)",
+      "gender": "male or female"
     }
   ],
   "trueStory": "3-4 sentences telling the complete true story of how and why the murder happened. Cinematic, personal, referencing the detective's personal detail. This is revealed at the end.",

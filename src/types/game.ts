@@ -17,6 +17,7 @@ export interface Suspect {
   alibi: string;
   isGuilty: boolean;
   secretMotive: string;
+  gender: "male" | "female";
   portraitUrl?: string;
 }
 
