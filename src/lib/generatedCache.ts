@@ -4,7 +4,6 @@ import path from "path";
 const ROOT = process.cwd();
 const CASES_DIR = path.join(ROOT, "generated", "cases");
 const PORTRAITS_DIR = path.join(ROOT, "public", "generated", "portraits");
-const VIDEOS_DIR = path.join(ROOT, "public", "generated", "videos");
 
 function slug(str: string): string {
   return str
@@ -79,27 +78,37 @@ export function savePortraitToCache(
   return `/generated/portraits/${key}.${ext}`;
 }
 
-// ─── Videos ───────────────────────────────────────────────────────────────────
+// ─── Crime Scene Images ────────────────────────────────────────────────────────
 
-function videoKey(setting: string, location: string): string {
+const CRIME_SCENES_DIR = path.join(ROOT, "public", "generated", "crime-scenes");
+
+function crimeSceneKey(setting: string, location: string): string {
   return slug(`${setting}-${location}`);
 }
 
-export function getCachedVideoUrl(setting: string, location: string): string | null {
-  const key = videoKey(setting, location);
-  const file = path.join(VIDEOS_DIR, `${key}.mp4`);
-  if (fs.existsSync(file)) return `/generated/videos/${key}.mp4`;
-  return null;
+export function getCachedCrimeSceneUrls(
+  setting: string,
+  location: string
+): string[] | null {
+  const key = crimeSceneKey(setting, location);
+  const urls: string[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const file = path.join(CRIME_SCENES_DIR, `${key}-${i}.png`);
+    if (!fs.existsSync(file)) return null;
+    urls.push(`/generated/crime-scenes/${key}-${i}.png`);
+  }
+  return urls;
 }
 
-export function saveVideoToCache(
+export function saveCrimeSceneToCache(
   setting: string,
   location: string,
-  buffer: Buffer
+  index: number,
+  base64Data: string
 ): string {
-  fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-  const key = videoKey(setting, location);
-  const file = path.join(VIDEOS_DIR, `${key}.mp4`);
-  fs.writeFileSync(file, buffer);
-  return `/generated/videos/${key}.mp4`;
+  fs.mkdirSync(CRIME_SCENES_DIR, { recursive: true });
+  const key = crimeSceneKey(setting, location);
+  const file = path.join(CRIME_SCENES_DIR, `${key}-${index}.png`);
+  fs.writeFileSync(file, Buffer.from(base64Data, "base64"));
+  return `/generated/crime-scenes/${key}-${index}.png`;
 }
