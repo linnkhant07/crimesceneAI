@@ -1,0 +1,50 @@
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
+import { buildCrimeGenerationPrompt } from "@/lib/prompts";
+import type { QuizAnswers } from "@/types/game";
+
+export async function POST(req: NextRequest) {
+  try {
+    const answers: QuizAnswers = await req.json();
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY not configured" },
+        { status: 500 }
+      );
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = buildCrimeGenerationPrompt(answers);
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.9,
+        topP: 0.95,
+        maxOutputTokens: 4096,
+      },
+    });
+
+    const text = response.text ?? "";
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return NextResponse.json(
+        { error: "Failed to parse crime case from AI response" },
+        { status: 500 }
+      );
+    }
+
+    const crimeCase = JSON.parse(jsonMatch[0]);
+    return NextResponse.json(crimeCase);
+  } catch (error) {
+    console.error("Crime generation error:", error);
+    return NextResponse.json(
+      { error: "Failed to generate crime case" },
+      { status: 500 }
+    );
+  }
+}
