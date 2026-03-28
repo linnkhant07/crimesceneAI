@@ -17,6 +17,7 @@ export interface Suspect {
   alibi: string;
   isGuilty: boolean;
   secretMotive: string;
+  gender: "male" | "female";
   portraitUrl?: string;
 }
 
@@ -47,12 +48,24 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface CrimeSceneImage {
+  url: string;
+  description: string;
+}
+
+export interface TaggedClue {
+  id: number;
+  imageIndex: number;
+  x: number; // percentage 0–100
+  y: number; // percentage 0–100
+}
+
 export type Screen =
   | "landing"
   | "quiz"
   | "loading"
   | "casefile"
-  | "interrogation"
+  | "investigation"
   | "accusation"
   | "reveal";
 

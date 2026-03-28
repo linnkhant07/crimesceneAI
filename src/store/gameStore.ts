@@ -5,6 +5,7 @@ import type {
   Screen,
   QuizAnswers,
   CrimeCase,
+  CrimeSceneImage,
   ChatMessage,
   InterrogationState,
 } from "@/types/game";
@@ -17,15 +18,13 @@ interface GameState {
   accusedSuspectIndex: number | null;
   isCorrect: boolean | null;
   startTime: number | null;
-  videoUrl: string | null;
-  videoOperationName: string | null;
+  crimeSceneImages: CrimeSceneImage[];
 
   setScreen: (screen: Screen) => void;
   setQuizAnswers: (answers: QuizAnswers) => void;
   setCrimeCase: (crimeCase: CrimeCase) => void;
   setSuspectPortrait: (index: number, dataUrl: string) => void;
-  setVideoUrl: (url: string) => void;
-  setVideoOperationName: (name: string) => void;
+  setCrimeSceneImages: (images: CrimeSceneImage[]) => void;
   switchSuspect: (index: number) => void;
   addMessage: (suspectIndex: number, message: ChatMessage) => void;
   updateNotes: (notes: string) => void;
@@ -50,8 +49,7 @@ export const useGameStore = create<GameState>((set) => ({
   accusedSuspectIndex: null,
   isCorrect: null,
   startTime: null,
-  videoUrl: null,
-  videoOperationName: null,
+  crimeSceneImages: [],
 
   setScreen: (screen) => set({ screen }),
   setQuizAnswers: (answers) => set({ quizAnswers: answers }),
@@ -75,8 +73,7 @@ export const useGameStore = create<GameState>((set) => ({
       return { crimeCase: { ...state.crimeCase, suspects } };
     }),
 
-  setVideoUrl: (url) => set({ videoUrl: url }),
-  setVideoOperationName: (name) => set({ videoOperationName: name }),
+  setCrimeSceneImages: (images) => set({ crimeSceneImages: images }),
 
   switchSuspect: (index) =>
     set((state) => ({
@@ -129,7 +126,6 @@ export const useGameStore = create<GameState>((set) => ({
       accusedSuspectIndex: null,
       isCorrect: null,
       startTime: null,
-      videoUrl: null,
-      videoOperationName: null,
+      crimeSceneImages: [],
     }),
 }));

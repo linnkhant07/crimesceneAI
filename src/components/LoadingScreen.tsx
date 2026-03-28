@@ -16,7 +16,7 @@ export default function LoadingScreen() {
     quizAnswers,
     setCrimeCase,
     setSuspectPortrait,
-    setVideoOperationName,
+    setCrimeSceneImages,
     setScreen,
   } = useGameStore();
   const [currentStep, setCurrentStep] = useState(0);
@@ -68,9 +68,9 @@ export default function LoadingScreen() {
                   setting: quizAnswers!.setting,
                 }),
               });
-              const { imageData } = await portraitRes.json();
-              if (imageData) {
-                setSuspectPortrait(i, imageData);
+              const { imageUrl } = await portraitRes.json();
+              if (imageUrl) {
+                setSuspectPortrait(i, imageUrl);
               }
             } catch {
               // Portrait generation failed, continue without it
@@ -81,23 +81,25 @@ export default function LoadingScreen() {
         await Promise.all(portraitPromises);
         await completeStep(1);
 
-        // Step 3: Start video generation (non-blocking)
+        // Step 3: Generate crime scene images
         try {
-          const videoRes = await fetch("/api/generate-video", {
+          const imgRes = await fetch("/api/generate-crime-scene-images", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               crimeSceneDescription: caseData.crimeSceneDescription,
               setting: quizAnswers!.setting,
               location: caseData.location,
+              clues: caseData.clues,
+              victimName: caseData.victim.name,
             }),
           });
-          const videoData = await videoRes.json();
-          if (videoData.operationId) {
-            setVideoOperationName(videoData.operationId);
+          const imgData = await imgRes.json();
+          if (imgData.images?.length) {
+            setCrimeSceneImages(imgData.images);
           }
         } catch {
-          // Video generation failed, continue without it
+          // Crime scene images failed — continue without them
         }
         await completeStep(2);
 
@@ -121,7 +123,7 @@ export default function LoadingScreen() {
     setGlitchActive(true);
     setTimeout(() => setGlitchActive(false), 2000);
     generate();
-  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setVideoOperationName, setScreen]);
+  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setCrimeSceneImages, setScreen]);
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden">

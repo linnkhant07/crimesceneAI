@@ -4,7 +4,8 @@ const MODEL = "gemini-3.1-flash-live-preview";
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
-const SUSPECT_VOICES = ["Charon", "Kore", "Fenrir"];
+const MALE_VOICES = ["Charon", "Fenrir"];
+const FEMALE_VOICES = ["Kore", "Aoede"];
 
 export interface LiveApiCallbacks {
   onTranscriptUpdate: (role: "user" | "suspect", text: string) => void;
@@ -25,22 +26,26 @@ export class LiveApiClient {
   private audioQueue: Float32Array[] = [];
   private isPlaying = false;
   private currentTranscript = "";
+  private outputTranscript = "";
   private playbackContext: AudioContext | null = null;
   private nextPlayTime = 0;
+  private setupComplete = false;
 
   constructor(callbacks: LiveApiCallbacks) {
     this.callbacks = callbacks;
   }
 
-  async connect(apiKey: string, systemPrompt: string, suspectIndex: number) {
+  async connect(apiKey: string, systemPrompt: string, suspectIndex: number, gender: "male" | "female" = "male") {
     this.disconnect();
 
     const url = `${LIVE_API_WS_URL}?key=${apiKey}`;
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
-      const voiceName = SUSPECT_VOICES[suspectIndex % SUSPECT_VOICES.length];
+      const voices = gender === "female" ? FEMALE_VOICES : MALE_VOICES;
+      const voiceName = voices[suspectIndex % voices.length];
 
+      // Wire format confirmed from SDK source: setup → generationConfig → responseModalities/speechConfig
       const configMessage = {
         setup: {
           model: `models/${MODEL}`,
@@ -55,26 +60,23 @@ export class LiveApiClient {
           systemInstruction: {
             parts: [{ text: systemPrompt }],
           },
-          realtimeInputConfig: {
-            automaticActivityDetection: {
-              disabled: false,
-            },
-          },
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         },
       };
 
       this.ws!.send(JSON.stringify(configMessage));
-      this.callbacks.onConnectionChange(true);
+      // Do NOT call onConnectionChange yet — wait for setupComplete from server
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const text = event.data instanceof Blob ? await event.data.text() : event.data;
+        const data = JSON.parse(text);
+        console.log("[LiveAPI] message from server:", JSON.stringify(data));
         this.handleServerMessage(data);
       } catch {
-        // ignore parse errors
+        console.log("[LiveAPI] raw message (not JSON):", event.data);
       }
     };
 
@@ -84,11 +86,19 @@ export class LiveApiClient {
     };
 
     this.ws.onclose = () => {
+      this.setupComplete = false;
       this.callbacks.onConnectionChange(false);
     };
   }
 
   private handleServerMessage(data: Record<string, unknown>) {
+    // Server confirms setup is ready — now signal the UI
+    if (data.setupComplete !== undefined) {
+      this.setupComplete = true;
+      this.callbacks.onConnectionChange(true);
+      return;
+    }
+
     const serverContent = data.serverContent as {
       modelTurn?: { parts?: Array<{ inlineData?: { data: string; mimeType: string }; text?: string }> };
       inputTranscription?: { text: string };
@@ -104,7 +114,6 @@ export class LiveApiClient {
           }
           if (part.text) {
             this.currentTranscript += part.text;
-            this.callbacks.onTranscriptUpdate("suspect", this.currentTranscript);
           }
         }
       }
@@ -117,14 +126,17 @@ export class LiveApiClient {
       }
 
       if (serverContent.outputTranscription?.text) {
-        this.callbacks.onTranscriptUpdate(
-          "suspect",
-          serverContent.outputTranscription.text
-        );
+        this.outputTranscript += serverContent.outputTranscription.text;
       }
 
       if (serverContent.turnComplete) {
+        if (this.outputTranscript.trim()) {
+          this.callbacks.onTranscriptUpdate("suspect", this.outputTranscript.trim());
+        } else if (this.currentTranscript.trim()) {
+          this.callbacks.onTranscriptUpdate("suspect", this.currentTranscript.trim());
+        }
         this.currentTranscript = "";
+        this.outputTranscript = "";
         this.callbacks.onAudioEnd();
       }
     }
@@ -201,21 +213,18 @@ export class LiveApiClient {
         this.mediaStream
       );
 
-      // ScriptProcessorNode for capturing raw audio
       this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
       this.processorNode.onaudioprocess = (event) => {
         if (!this.isRecording || !this.ws) return;
 
         const inputData = event.inputBuffer.getChannelData(0);
 
-        // Resample to 16kHz if needed
         const resampled = this.resample(
           inputData,
           this.audioContext!.sampleRate,
           INPUT_SAMPLE_RATE
         );
 
-        // Convert Float32 to Int16
         const int16Data = new Int16Array(resampled.length);
         for (let i = 0; i < resampled.length; i++) {
           const s = Math.max(-1, Math.min(1, resampled[i]));
@@ -224,14 +233,13 @@ export class LiveApiClient {
 
         const base64 = this.arrayBufferToBase64(int16Data.buffer);
 
+        // Current Live API format: realtimeInput.audio (not mediaChunks)
         const audioMessage = {
           realtimeInput: {
-            mediaChunks: [
-              {
-                data: base64,
-                mimeType: "audio/pcm;rate=16000",
-              },
-            ],
+            audio: {
+              data: base64,
+              mimeType: "audio/pcm;rate=16000",
+            },
           },
         };
 
@@ -275,19 +283,22 @@ export class LiveApiClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const msg = {
-      clientContent: {
-        turns: [{ role: "user", parts: [{ text }] }],
-        turnComplete: true,
+      realtimeInput: {
+        text,
       },
     };
 
     this.ws.send(JSON.stringify(msg));
   }
 
-  disconnect() {
+  disconnect(silent = false) {
     this.stopRecording();
 
     if (this.ws) {
+      if (silent) {
+        this.ws.onclose = null;
+        this.ws.onerror = null;
+      }
       this.ws.close();
       this.ws = null;
     }
@@ -301,10 +312,12 @@ export class LiveApiClient {
     this.isPlaying = false;
     this.nextPlayTime = 0;
     this.currentTranscript = "";
+    this.outputTranscript = "";
+    this.setupComplete = false;
   }
 
   get connected() {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.ws?.readyState === WebSocket.OPEN && this.setupComplete;
   }
 
   private resample(
