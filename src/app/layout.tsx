@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Cinzel, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +12,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const cinzel = Cinzel({
+  variable: "--font-cinzel",
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "CRIMESCENE.AI — Every crime is personal",
+  title: "Sherlock AI — The game is afoot",
   description:
-    "An AI-powered interactive murder mystery. Investigate crimes, interrogate suspects, and solve the case.",
+    "An immersive AI detective experience. Build your case, interrogate suspects, and solve the mystery.",
 };
 
 export default function RootLayout({
@@ -26,9 +32,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${geistSans.variable} ${geistMono.variable} ${cinzel.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full bg-[#0a0a0f] text-white">{children}</body>
+      <body className="min-h-full bg-[#060608] text-white relative overflow-hidden">
+        <div className="immersive-vignette pointer-events-none fixed inset-0 z-[100] select-none" aria-hidden />
+        <div className="film-grain pointer-events-none fixed inset-0 z-[101] select-none" aria-hidden />
+        <div className="relative z-0 min-h-full">{children}</div>
+      </body>
     </html>
   );
 }

@@ -102,7 +102,11 @@ export default function CrimeSceneTab({ taggedClues, onTagClue }: CrimeSceneTabP
       const systemPrompt = buildDetectiveHayesPrompt(
         crimeCase,
         SETTING_LABELS[quizAnswers.setting] ?? quizAnswers.setting,
-        crimeSceneImages
+        crimeSceneImages,
+        {
+          name: quizAnswers.detectiveName,
+          personalDetail: quizAnswers.personalDetail,
+        }
       );
 
       // Hayes always uses voice index 0 → "Charon" (deep authoritative male)

@@ -20,25 +20,48 @@ export default function CaseFileScreen() {
   const previewImage = crimeSceneImages[0] ?? null;
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0f] overflow-y-auto">
+    <div className="fixed inset-0 bg-[#060608] overflow-y-auto">
       <div
         className={`max-w-3xl mx-auto py-12 px-6 transition-all duration-1000 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >
-        <div className="border border-gray-800 bg-[#0d0d12] relative">
+        <div className="border border-amber-900/35 bg-[#0c0a08] relative shadow-[0_0_80px_rgba(0,0,0,0.6)] dossier-panel">
           {stampVisible && (
-            <div className="absolute top-4 right-4 text-red-700/40 font-mono text-xs tracking-[0.3em] border border-red-700/30 px-3 py-1 rotate-[-4deg]">
+            <div className="absolute top-4 right-4 text-amber-800/50 font-mono text-[10px] tracking-[0.35em] border border-amber-900/40 px-3 py-1.5 rotate-[-3deg]">
               CLASSIFIED
             </div>
           )}
 
-          <div className="border-b border-gray-800 p-6">
-            <h2 className="text-red-500 font-mono text-xs tracking-[0.3em] mb-1">
-              CLASSIFIED — DETECTIVE {quizAnswers.detectiveName.toUpperCase()}
+          <div className="border-b border-amber-900/25 p-6 bg-black/20">
+            <p className="font-mono text-[10px] tracking-[0.4em] text-amber-800/80 mb-2 uppercase">
+              Sherlock AI · Case record
+            </p>
+            <h2 className="text-amber-200/90 font-display text-lg tracking-[0.12em] mb-1">
+              DETECTIVE {quizAnswers.detectiveName.toUpperCase()}
             </h2>
             <p className="text-gray-600 font-mono text-xs">CASE #{crimeCase.caseNumber}</p>
           </div>
+
+          {(quizAnswers.personalDetail.trim() || crimeCase.personalizedDetail?.trim()) && (
+            <div className="border-b border-amber-900/40 bg-amber-950/20 p-6">
+              <h3 className="text-amber-600/90 font-mono text-xs tracking-[0.2em] mb-3">
+                YOUR FILE — WHY THIS CASE IS YOURS
+              </h3>
+              {quizAnswers.personalDetail.trim() ? (
+                <p className="text-gray-400 text-sm mb-3">
+                  <span className="text-gray-600 font-mono text-xs mr-2">YOU TOLD US:</span>
+                  <span className="text-gray-200">&ldquo;{quizAnswers.personalDetail.trim()}&rdquo;</span>
+                </p>
+              ) : null}
+              {crimeCase.personalizedDetail?.trim() ? (
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  <span className="text-gray-600 font-mono text-xs block mb-1">CASE HOOK:</span>
+                  {crimeCase.personalizedDetail.trim()}
+                </p>
+              ) : null}
+            </div>
+          )}
 
           {/* Victim info */}
           <div className="p-6 border-b border-gray-800">
@@ -141,10 +164,10 @@ export default function CaseFileScreen() {
         <div className="mt-8 text-center">
           <button
             onClick={() => setScreen("investigation")}
-            className="px-12 py-4 border border-red-800/50 text-red-500 font-mono text-sm tracking-[0.3em]
-                       hover:bg-red-500/10 hover:border-red-500/80 transition-all cursor-pointer uppercase"
+            className="px-12 py-4 border border-amber-900/50 text-amber-200/90 font-mono text-sm tracking-[0.25em]
+                       hover:bg-amber-950/50 hover:border-red-800/60 hover:text-red-400 transition-all cursor-pointer uppercase"
           >
-            BEGIN INVESTIGATION →
+            Enter the investigation →
           </button>
         </div>
       </div>

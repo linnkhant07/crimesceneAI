@@ -55,24 +55,34 @@ export default function QuizScreen() {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center">
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-1/4 left-1/4 w-1 h-32 bg-yellow-900/50 blur-sm rotate-12" />
-        <div className="absolute top-1/3 right-1/3 w-1 h-24 bg-yellow-900/30 blur-sm -rotate-6" />
+    <div className="fixed inset-0 bg-[#060608] flex items-center justify-center">
+      <div className="absolute inset-0 bg-gradient-to-b from-amber-950/15 via-transparent to-black/60 pointer-events-none" />
+      <div className="absolute inset-0 opacity-[0.07]">
+        <div className="absolute top-1/4 left-1/4 w-px h-40 bg-amber-800/80 blur-sm rotate-12" />
+        <div className="absolute top-1/3 right-1/3 w-px h-28 bg-amber-900/60 blur-sm -rotate-6" />
       </div>
 
       <div
-        className={`relative z-10 w-full max-w-2xl px-8 transition-all duration-500 ${
+        className={`relative z-10 w-full max-w-2xl px-6 md:px-10 transition-all duration-500 ${
           fadeIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
         }`}
       >
-        <div className="text-gray-600 font-mono text-sm tracking-wider mb-8">
-          QUESTION {step + 1} of 4
+        <header className="mb-10 text-center border-b border-amber-900/25 pb-6">
+          <p className="font-display text-lg md:text-xl tracking-[0.2em] text-amber-100/90 mb-1">
+            Sherlock AI
+          </p>
+          <p className="font-mono text-[10px] md:text-xs tracking-[0.4em] text-gray-600 uppercase">
+            Confidential dossier · intake
+          </p>
+        </header>
+
+        <div className="text-gray-500 font-mono text-xs tracking-[0.35em] mb-8 uppercase">
+          Dossier {step + 1} / 4
         </div>
 
         {step === 0 && (
-          <div>
-            <h2 className="text-2xl md:text-3xl text-gray-300 font-light mb-10">
+          <div className="dossier-panel rounded-sm p-8 md:p-10">
+            <h2 className="font-display text-2xl md:text-3xl text-amber-100/90 font-normal mb-10 leading-snug">
               &ldquo;Where did this happen?&rdquo;
             </h2>
             <div className="grid grid-cols-2 gap-4">
@@ -97,8 +107,8 @@ export default function QuizScreen() {
         )}
 
         {step === 1 && (
-          <div>
-            <h2 className="text-2xl md:text-3xl text-gray-300 font-light mb-10">
+          <div className="dossier-panel rounded-sm p-8 md:p-10">
+            <h2 className="font-display text-2xl md:text-3xl text-amber-100/90 font-normal mb-10 leading-snug">
               &ldquo;What&apos;s your name, Detective?&rdquo;
             </h2>
             <div className="flex flex-col gap-6">
@@ -127,12 +137,12 @@ export default function QuizScreen() {
         )}
 
         {step === 2 && (
-          <div>
-            <h2 className="text-2xl md:text-3xl text-gray-300 font-light mb-2">
+          <div className="dossier-panel rounded-sm p-8 md:p-10">
+            <h2 className="font-display text-2xl md:text-3xl text-amber-100/90 font-normal mb-2 leading-snug">
               &ldquo;Tell me one thing about yourself.&rdquo;
             </h2>
-            <p className="text-gray-600 text-sm mb-10 italic">
-              We&apos;ll make this case personal.
+            <p className="text-gray-500 text-sm mb-10 italic border-l-2 border-amber-900/40 pl-4">
+              A detail that will follow you into the fog — we weave it through your case.
             </p>
             <div className="flex flex-col gap-2">
               <input
@@ -165,8 +175,8 @@ export default function QuizScreen() {
         )}
 
         {step === 3 && (
-          <div>
-            <h2 className="text-2xl md:text-3xl text-gray-300 font-light mb-10">
+          <div className="dossier-panel rounded-sm p-8 md:p-10">
+            <h2 className="font-display text-2xl md:text-3xl text-amber-100/90 font-normal mb-10 leading-snug">
               &ldquo;How many suspects are you ready to handle?&rdquo;
             </h2>
             <div className="flex flex-col gap-4">

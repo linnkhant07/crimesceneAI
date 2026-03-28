@@ -11,26 +11,29 @@ export default function AccusationScreen() {
   if (!crimeCase || !quizAnswers) return null;
 
   return (
-    <div className="fixed inset-0 bg-[#0a0808] flex items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-t from-red-950/20 via-transparent to-transparent" />
+    <div className="fixed inset-0 bg-[#060608] flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-t from-red-950/25 via-amber-950/5 to-transparent" />
 
       <div
         className={`relative z-10 max-w-3xl w-full px-8 text-center transition-all duration-1000 ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >
-        <p className="text-gray-600 font-mono text-sm tracking-[0.3em] mb-6">
-          DETECTIVE {quizAnswers.detectiveName.toUpperCase()}.
+        <p className="text-amber-900/70 font-mono text-[10px] tracking-[0.45em] mb-4 uppercase">
+          Sherlock AI · verdict
+        </p>
+        <p className="text-gray-500 font-mono text-xs tracking-[0.25em] mb-8">
+          DETECTIVE {quizAnswers.detectiveName.toUpperCase()}
         </p>
 
-        <h2 className="text-2xl md:text-3xl text-gray-300 font-light mb-2">
-          You&apos;ve heard the evidence.
+        <h2 className="font-display text-2xl md:text-3xl text-amber-100/90 font-normal mb-2 tracking-wide">
+          The evidence has been heard.
         </h2>
-        <p className="text-gray-500 text-lg mb-2">
-          You&apos;ve looked them in the eye.
+        <p className="text-gray-500 text-base md:text-lg mb-2">
+          You have looked them in the eye.
         </p>
-        <p className="text-xl text-red-500 font-light mb-12">
-          Now make your call.
+        <p className="text-lg md:text-xl text-red-600/90 font-display mb-12 tracking-wide">
+          Name your suspect.
         </p>
 
         <div
@@ -76,7 +79,7 @@ export default function AccusationScreen() {
         </p>
 
         <button
-          onClick={() => setScreen("interrogation")}
+          onClick={() => setScreen("investigation")}
           className="mt-6 text-gray-700 text-xs font-mono hover:text-gray-500 transition-colors cursor-pointer"
         >
           ← Back to interrogation

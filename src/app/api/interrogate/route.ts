@@ -4,8 +4,16 @@ import { buildInterrogationSystemPrompt } from "@/lib/prompts";
 
 export async function POST(req: NextRequest) {
   try {
-    const { suspectData, setting, crimeContext, chatHistory, userMessage } =
-      await req.json();
+    const {
+      suspectData,
+      setting,
+      crimeContext,
+      chatHistory,
+      userMessage,
+      detectiveName,
+      personalDetail,
+      personalizedDetail,
+    } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -21,7 +29,12 @@ export async function POST(req: NextRequest) {
       suspectData.name,
       suspectData,
       setting,
-      crimeContext
+      crimeContext,
+      {
+        name: typeof detectiveName === "string" && detectiveName.trim() ? detectiveName.trim() : "Detective",
+        personalDetail: typeof personalDetail === "string" ? personalDetail : "",
+        casePersonalization: typeof personalizedDetail === "string" ? personalizedDetail : "",
+      }
     );
 
     const conversationHistory = (chatHistory || []).map(
