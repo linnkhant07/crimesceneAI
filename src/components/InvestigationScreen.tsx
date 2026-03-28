@@ -10,6 +10,9 @@ type InvestigationTab = "crime-scene" | "suspects";
 export default function InvestigationScreen() {
   const [activeTab, setActiveTab] = useState<InvestigationTab>("crime-scene");
   const [taggedClues, setTaggedClues] = useState<TaggedClue[]>([]);
+  // Only mount InterrogationScreen after the user first opens the suspects tab,
+  // then keep it mounted so the Live API connection survives tab switches.
+  const [suspectsEverOpened, setSuspectsEverOpened] = useState(false);
 
   const handleTagClue = useCallback((clue: TaggedClue) => {
     setTaggedClues((prev) => [...prev, clue]);
@@ -35,7 +38,7 @@ export default function InvestigationScreen() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab("suspects")}
+          onClick={() => { setActiveTab("suspects"); setSuspectsEverOpened(true); }}
           className={`flex items-center gap-2 px-6 py-2.5 font-mono text-xs tracking-[0.2em] transition-all cursor-pointer ${
             activeTab === "suspects"
               ? "text-red-500 bg-red-500/5 border-b-2 border-b-red-700"
@@ -51,10 +54,13 @@ export default function InvestigationScreen() {
         <CrimeSceneTab taggedClues={taggedClues} onTagClue={handleTagClue} />
       </div>
 
-      {/* Suspects tab */}
-      <div className={activeTab === "suspects" ? "block" : "hidden"}>
-        <InterrogationScreen topOffset />
-      </div>
+      {/* Suspects tab — only mounted after first visit so Live API doesn't
+          connect while the user is still on the crime scene tab */}
+      {suspectsEverOpened && (
+        <div className={activeTab === "suspects" ? "block" : "hidden"}>
+          <InterrogationScreen topOffset />
+        </div>
+      )}
     </>
   );
 }
