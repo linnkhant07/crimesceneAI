@@ -3,7 +3,8 @@ import type { QuizAnswers, CrimeCase, CrimeSceneImage } from "@/types/game";
 export function buildDetectiveHayesPrompt(
   crimeCase: CrimeCase,
   setting: string,
-  images: CrimeSceneImage[]
+  images: CrimeSceneImage[],
+  partnerDetective?: { name: string; personalDetail?: string }
 ): string {
   const guiltyName = crimeCase.suspects.find((s) => s.isGuilty)?.name ?? "unknown";
   const imageList = images
@@ -11,7 +12,11 @@ export function buildDetectiveHayesPrompt(
     .join("\n");
   const clueList = crimeCase.clues.map((c, i) => `  Clue ${i + 1} (${c.type}): ${c.text}`).join("\n");
 
-  return `You are Detective Hayes — a sharp, seasoned homicide detective with 30 years on the job, dry wit, and an old-school instinct that never fails. You are partnering with a younger detective (the player) to work a fresh crime scene.
+  const partnerLine = partnerDetective
+    ? `Your partner on this case is Detective ${partnerDetective.name}.${partnerDetective.personalDetail?.trim() ? ` You know they mentioned: "${partnerDetective.personalDetail.trim()}".` : ""} Address them by name sometimes.`
+    : "You are partnering with a younger detective (the player) on this scene.";
+
+  return `You are Detective Hayes — a sharp, seasoned homicide detective with 30 years on the job, dry wit, and an old-school instinct that never fails. ${partnerLine}
 
 CASE FILE (CONFIDENTIAL):
 - Victim: ${crimeCase.victim.name}, ${crimeCase.victim.age}, ${crimeCase.victim.occupation}
@@ -50,12 +55,13 @@ export function buildCrimeGenerationPrompt(answers: QuizAnswers): string {
     "small-town": "a quiet small town with white picket fences, a main street diner, and secrets behind every door",
   };
 
-  return `You are a master crime fiction writer. Generate a murder mystery case for an interactive detective game.
+  return `You are writing a SHORT, FAIR murder mystery for a casual browser game (MVP). Keep language plain and concrete—no purple prose, no elaborate twists.
 
 CONTEXT:
-- Detective's name: ${answers.detectiveName}
+- Lead detective's name: ${answers.detectiveName}
 - Setting: ${settingMap[answers.setting]}
-- Personal detail about the detective: "${answers.personalDetail}" — weave this into the story naturally (e.g., if they mention a city, the victim could be from there; if a hobby, a clue could reference it)
+- Personal detail the player gave about their detective: "${answers.personalDetail}"
+  This MUST appear in the case: at least one clue OR the victim/backstory should reference it in a simple, obvious way (e.g. city → victim from that city; hobby → object at scene). The field "personalizedDetail" must state that link in one clear sentence.
 - Number of suspects: ${answers.suspectCount}
 
 Generate a JSON object (and ONLY a JSON object, no markdown, no backticks) with this exact structure:
@@ -67,13 +73,13 @@ Generate a JSON object (and ONLY a JSON object, no markdown, no backticks) with 
     "occupation": "their job"
   },
   "location": "specific location within the setting",
-  "timeOfDeath": "approximate time (e.g., '11:45 PM, during the midnight watch')",
-  "causeOfDeath": "cause of death (creative but not gratuitous)",
-  "crimeSceneDescription": "2-3 sentences describing what the detective sees at the crime scene. Vivid, atmospheric, fitting the setting.",
+  "timeOfDeath": "one short phrase (e.g. 'around 11 PM')",
+  "causeOfDeath": "one short plain phrase",
+  "crimeSceneDescription": "Exactly 2 short sentences: what ${answers.detectiveName} sees. Simple words, no literary flourishes.",
   "clues": [
-    {"text": "description of an obvious clue that points to a suspect", "type": "obvious"},
-    {"text": "description of a misleading clue that seems to point to an innocent suspect", "type": "misleading"},
-    {"text": "description of a subtle but crucial clue that actually reveals the killer", "type": "key"}
+    {"text": "A simple physical or observational clue that makes ONE innocent suspect look guilty (red herring). Be specific.", "type": "obvious"},
+    {"text": "A clue that points toward a different innocent suspect—still straightforward.", "type": "misleading"},
+    {"text": "The decisive clue: when combined with the killer's alibi or story, it clearly points to the guilty suspect. Name a concrete object, mark, or fact—not vague intuition.", "type": "key"}
   ],
   "suspects": [
     {
@@ -81,27 +87,24 @@ Generate a JSON object (and ONLY a JSON object, no markdown, no backticks) with 
       "age": number,
       "occupation": "their job/role",
       "relationship": "relationship to victim",
-      "appearance": "brief physical description, 1 sentence",
-      "personality": "brief personality traits, 1 sentence",
-      "alibi": "their stated alibi",
+      "appearance": "one short sentence",
+      "personality": "one short sentence, plain words",
+      "alibi": "2-3 short sentences: where they claim they were. The killer's alibi must contain ONE clear contradiction or impossibility a player can notice (time, place, or fact). Innocent suspects have solid alibis.",
       "isGuilty": false,
-      "secretMotive": "why they COULD have done it but didn't (for red herrings) or why they DID do it (for the guilty one)",
+      "secretMotive": "one sentence; guilty = why they did it; innocent = minor secret that is NOT the murder",
       "gender": "male or female"
     }
   ],
-  "trueStory": "3-4 sentences telling the complete true story of how and why the murder happened. Cinematic, personal, referencing the detective's personal detail. This is revealed at the end.",
-  "personalizedDetail": "how the detective's personal detail connects to the case",
-  "keyClueCallback": "1 sentence explaining which clue should have revealed the truth and why"
+  "trueStory": "2-3 short sentences: who killed whom, how, and why. Plain language. Mention how "${answers.personalDetail}" ties in if non-empty; otherwise skip.",
+  "personalizedDetail": "One sentence: how the detective's personal detail connects to this case (repeat the connection clearly).",
+  "keyClueCallback": "One short sentence: name the key clue type (clue 3) and the guilty suspect's contradiction—no riddles."
 }
 
 RULES:
 - Exactly ONE suspect must have "isGuilty": true
-- The guilty suspect's alibi should have a subtle hole
-- The misleading clue should convincingly point to an innocent suspect
-- The key clue should be solvable but not obvious
-- Make the story compelling and the characters distinct
-- The personal detail about the detective MUST be woven in naturally
-- All suspects need distinct personalities that come through in dialogue`;
+- The puzzle must be solvable from the case file clues + alibis without hidden information
+- Keep every text field brief; avoid nested mysteries or extra suspects off-screen
+- Suspects must sound like different people but stay simple`;
 }
 
 export function buildInterrogationSystemPrompt(
@@ -115,26 +118,38 @@ export function buildInterrogationSystemPrompt(
     relationship: string;
   },
   setting: string,
-  crimeContext: string
+  crimeContext: string,
+  detective: {
+    name: string;
+    personalDetail: string;
+    casePersonalization: string;
+  }
 ): string {
+  const detectiveBlock =
+    detective.personalDetail.trim().length > 0
+      ? `The detective interrogating you is named ${detective.name}. You know this about them: "${detective.personalDetail}". How this case connects to them (use naturally, do not read as exposition): ${detective.casePersonalization}`
+      : `The detective interrogating you is named ${detective.name}. Address them by name occasionally when it fits.`;
+
   const guiltyInstructions = suspectData.isGuilty
     ? `You ARE the killer. You must:
 - Never confess directly unless cornered with specific evidence
-- Have a believable alibi with one subtle inconsistency
-- Show micro-reactions (shifting eyes, pausing, changing subject) when pressed on key details
-- Become defensive or redirect when questions get too close
+- Your alibi should include the ONE clear weak spot described in your backstory—if pressed on times/places/facts, slip or contradict yourself
+- Show stress when pressed on that weak spot
 - Your secret motive: "${suspectData.secretMotive}"
 - If directly confronted with the key evidence, become flustered but still deny`
     : `You are INNOCENT. You must:
 - Be genuinely confused or scared about the accusation
-- Have a solid alibi but be naturally nervous about being suspected
-- You have your own secret: "${suspectData.secretMotive}" which makes you seem suspicious
+- Have a consistent alibi; be nervous but not evasive about facts
+- You have your own secret: "${suspectData.secretMotive}" which may make you seem suspicious but you did not kill anyone
 - Be willing to share information about other suspects if asked`;
 
   return `You are ${suspectName}, a ${suspectData.occupation} being interrogated about a murder.
 
 SETTING: ${setting}
 CRIME CONTEXT: ${crimeContext}
+
+DETECTIVE:
+${detectiveBlock}
 
 YOUR CHARACTER:
 - Personality: ${suspectData.personality}

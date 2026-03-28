@@ -99,10 +99,11 @@ export default function LandingScreen() {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0f] overflow-hidden flex items-center justify-center">
-      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
+    <div className="fixed inset-0 bg-[#060608] overflow-hidden flex items-center justify-center">
+      <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none opacity-90" />
 
-      <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-[#0a0a0f]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-amber-950/10 via-transparent to-black/80" />
+      <div className="absolute inset-0 bg-gradient-radial from-amber-900/5 via-transparent to-[#060608]" />
 
       <div className="absolute bottom-0 left-0 right-0 h-32">
         {cityLights.map((style, i) => (
@@ -111,30 +112,38 @@ export default function LandingScreen() {
       </div>
 
       <div
-        className={`relative z-10 text-center transition-all duration-[2000ms] ${
+        className={`relative z-10 text-center max-w-3xl px-6 transition-all duration-[2000ms] ${
           visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
         }`}
       >
+        <p className="font-mono text-[10px] md:text-xs tracking-[0.5em] text-amber-700/80 mb-6 uppercase">
+          221B · Confidential
+        </p>
+
         <h1
-          className="text-5xl md:text-7xl font-mono tracking-[0.4em] text-white mb-6 transition-opacity duration-100"
-          style={{ opacity: flickerOn ? 1 : 0.1 }}
+          className="font-display text-5xl md:text-7xl lg:text-8xl font-semibold tracking-[0.12em] text-white mb-4 transition-opacity duration-100"
+          style={{ opacity: flickerOn ? 1 : 0.15 }}
         >
-          <span className="text-red-500">C R I M E</span>
-          <span className="text-gray-500">SCENE</span>
-          <span className="text-white">.AI</span>
+          <span className="text-amber-100">SHERLOCK</span>
+          <span className="text-gray-600 mx-1 md:mx-2 font-light">·</span>
+          <span className="text-red-600">AI</span>
         </h1>
 
-        <p className="text-gray-500 text-lg md:text-xl font-light italic tracking-wider mb-16">
-          &ldquo;Every crime is personal.&rdquo;
+        <p className="font-mono text-xs md:text-sm tracking-[0.35em] text-gray-500 uppercase mb-4">
+          The game is afoot
+        </p>
+
+        <p className="text-gray-600 text-base md:text-lg font-light italic tracking-wide mb-14 border-t border-amber-900/20 pt-8 mx-auto max-w-md">
+          Step into the fog. Every deduction is personal.
         </p>
 
         <button
           onClick={() => setScreen("quiz")}
-          className="group relative px-12 py-4 border border-red-800/50 text-red-500 font-mono text-sm tracking-[0.3em] uppercase
-                     hover:bg-red-500/10 hover:border-red-500/80 transition-all duration-500 cursor-pointer
-                     before:absolute before:inset-0 before:bg-red-500/5 before:animate-pulse"
+          className="group relative px-12 py-4 border border-amber-900/40 text-amber-200/90 font-mono text-sm tracking-[0.25em] uppercase
+                     hover:bg-amber-950/40 hover:border-red-700/50 hover:text-red-400 transition-all duration-500 cursor-pointer
+                     before:absolute before:inset-0 before:bg-red-950/20 before:opacity-0 hover:before:opacity-100 before:transition-opacity"
         >
-          <span className="relative z-10">BEGIN INVESTIGATION</span>
+          <span className="relative z-10">Open your dossier</span>
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
             <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-red-500" />
             <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-red-500" />

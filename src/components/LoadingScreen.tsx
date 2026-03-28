@@ -4,11 +4,11 @@ import { useEffect, useState, useRef } from "react";
 import { useGameStore } from "@/store/gameStore";
 
 const STEPS = [
-  "Identifying victim...",
-  "Sketching suspects...",
-  "Planting evidence...",
-  "Hiding the truth...",
-  "Your case is ready.",
+  "Consulting the index...",
+  "Cross-referencing witnesses...",
+  "Walking the scene in silence...",
+  "Sealing exhibits...",
+  "The file is yours.",
 ];
 
 export default function LoadingScreen() {
@@ -126,17 +126,24 @@ export default function LoadingScreen() {
   }, [quizAnswers, setCrimeCase, setSuspectPortrait, setCrimeSceneImages, setScreen]);
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 bg-[#060608] flex items-center justify-center overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-amber-950/10 pointer-events-none" />
       {glitchActive && (
         <div className="absolute inset-0 z-20 pointer-events-none">
-          <div className="glitch-lines" />
+          <div className="glitch-lines opacity-70" />
         </div>
       )}
 
       <div className="relative z-10 w-full max-w-lg px-8">
-        <h2 className="text-xl font-mono text-red-500 tracking-[0.3em] mb-12 text-center">
-          CASE FILE GENERATING...
+        <p className="font-mono text-[10px] tracking-[0.45em] text-amber-800/90 text-center mb-3 uppercase">
+          Sherlock AI
+        </p>
+        <h2 className="font-display text-xl md:text-2xl text-amber-100/90 tracking-[0.15em] mb-2 text-center">
+          Composing your case file
         </h2>
+        <p className="text-gray-600 font-mono text-xs tracking-wider text-center mb-12">
+          Do not refresh — evidence is being set in order.
+        </p>
 
         <div className="space-y-4 mb-12">
           {STEPS.map((step, i) => (

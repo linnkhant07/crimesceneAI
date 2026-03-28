@@ -130,7 +130,12 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
           suspect.name,
           suspect,
           SETTING_LABELS[quizAnswers.setting] || quizAnswers.setting,
-          `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`
+          `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`,
+          {
+            name: quizAnswers.detectiveName,
+            personalDetail: quizAnswers.personalDetail,
+            casePersonalization: crimeCase.personalizedDetail ?? "",
+          }
         );
 
         await client.connect(apiKeyRef.current, systemPrompt, suspectIdx, suspect.gender ?? "male");
@@ -204,12 +209,12 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
   if (!crimeCase || !currentSuspect) return null;
 
   return (
-    <div className={`fixed inset-0 bg-[#0a0a0f] flex ${topOffset ? "top-10" : ""}`}>
+    <div className={`fixed inset-0 bg-[#060608] flex ${topOffset ? "top-10" : ""}`}>
       {/* ── Left sidebar ─────────────────────────────────────────── */}
-      <div className="w-72 border-r border-gray-800 flex flex-col">
+      <div className="w-72 border-r border-amber-950/40 flex flex-col bg-black/20">
 
         {/* Portrait */}
-        <div className="p-5 border-b border-gray-800 flex-shrink-0">
+        <div className="p-5 border-b border-amber-950/30 flex-shrink-0">
           <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center rounded-sm overflow-hidden relative">
             {currentSuspect.portraitUrl ? (
               <img
@@ -248,7 +253,7 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
         </div>
 
         {/* Suspect switcher */}
-        <div className="p-4 border-b border-gray-800 flex-shrink-0">
+        <div className="p-4 border-b border-amber-950/30 flex-shrink-0">
           <p className="text-gray-600 font-mono text-[10px] tracking-widest mb-2">SWITCH SUSPECT</p>
           <div className="flex gap-2">
             {crimeCase.suspects.map((s, i) => (
@@ -268,7 +273,7 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
         </div>
 
         {/* Connection status */}
-        <div className="p-4 border-b border-gray-800 flex-shrink-0">
+        <div className="p-4 border-b border-amber-950/30 flex-shrink-0">
           {liveError ? (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
@@ -322,10 +327,13 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
       <div className="flex-1 flex flex-col">
 
         {/* Header */}
-        <div className="p-4 border-b border-gray-800 flex items-center justify-between flex-shrink-0">
+        <div className="p-4 border-b border-amber-950/30 flex items-center justify-between flex-shrink-0 bg-black/15">
           <div>
-            <span className="text-red-500 font-mono text-xs tracking-[0.2em]">INTERROGATING:</span>
-            <span className="text-gray-300 font-mono text-sm ml-3">{currentSuspect.name}</span>
+            <p className="text-amber-900/70 font-mono text-[9px] tracking-[0.35em] mb-1 uppercase">
+              Sherlock AI · interview room
+            </p>
+            <span className="text-amber-700/90 font-mono text-xs tracking-[0.2em]">SUBJECT:</span>
+            <span className="text-amber-100/90 font-display text-base ml-2">{currentSuspect.name}</span>
           </div>
           <span className="text-gray-700 font-mono text-xs">
             {interrogation.questionsAsked} turns
@@ -335,9 +343,10 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
         {/* Transcript — suspect only */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {currentChat.length === 0 && !streamingText && (
-            <div className="text-center text-gray-800 font-mono text-sm py-16">
-              <p className="mb-2">The suspect sits across from you.</p>
-              <p className="text-xs text-gray-900">Hold the mic button or ⌘ to ask your first question.</p>
+            <div className="text-center text-gray-700 font-mono text-sm py-16 max-w-md mx-auto">
+              <p className="mb-2 text-gray-500">Oil lamp flicker. A chair creaks.</p>
+              <p className="mb-3 text-gray-400">They wait for your first move.</p>
+              <p className="text-xs text-gray-600">Hold the mic or ⌘ to speak.</p>
             </div>
           )}
 
@@ -371,7 +380,7 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
         </div>
 
         {/* ── Bottom controls ───────────────────────────────────── */}
-        <div className="p-6 border-t border-gray-800 flex-shrink-0">
+        <div className="p-6 border-t border-amber-950/30 flex-shrink-0">
           <div className="flex items-center justify-between gap-6">
 
             {/* Mic button — the primary control */}

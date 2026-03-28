@@ -21,16 +21,16 @@ export default function InvestigationScreen() {
   return (
     <>
       {/* Fixed tab bar — z-50 sits above both full-screen sub-components */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex border-b border-gray-800 bg-[#0a0a0f]">
+      <div className="fixed top-0 left-0 right-0 z-50 flex border-b border-amber-900/30 bg-[#060608]/95 backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
         <button
           onClick={() => setActiveTab("crime-scene")}
-          className={`flex items-center gap-2 px-6 py-2.5 font-mono text-xs tracking-[0.2em] border-r border-gray-800 transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-5 md:px-7 py-3 font-mono text-[10px] md:text-xs tracking-[0.18em] border-r border-amber-900/25 transition-all cursor-pointer ${
             activeTab === "crime-scene"
-              ? "text-red-500 bg-red-500/5 border-b-2 border-b-red-700"
-              : "text-gray-600 hover:text-gray-400"
+              ? "text-amber-200 bg-amber-950/30 border-b-2 border-b-amber-700/80"
+              : "text-gray-500 hover:text-gray-300"
           }`}
         >
-          🔎 CRIME SCENE
+          🔎 THE SCENE
           {taggedClues.length > 0 && (
             <span className="ml-1 px-1.5 py-0.5 bg-red-900/40 text-red-500 text-[10px] rounded">
               {taggedClues.length}
@@ -39,13 +39,13 @@ export default function InvestigationScreen() {
         </button>
         <button
           onClick={() => { setActiveTab("suspects"); setSuspectsEverOpened(true); }}
-          className={`flex items-center gap-2 px-6 py-2.5 font-mono text-xs tracking-[0.2em] transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-5 md:px-7 py-3 font-mono text-[10px] md:text-xs tracking-[0.18em] transition-all cursor-pointer ${
             activeTab === "suspects"
-              ? "text-red-500 bg-red-500/5 border-b-2 border-b-red-700"
-              : "text-gray-600 hover:text-gray-400"
+              ? "text-amber-200 bg-amber-950/30 border-b-2 border-b-amber-700/80"
+              : "text-gray-500 hover:text-gray-300"
           }`}
         >
-          👥 SUSPECTS
+          👥 INTERROGATION
         </button>
       </div>
 

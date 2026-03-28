@@ -45,21 +45,42 @@ export default function RevealScreen() {
 
   if (isCorrect) {
     return (
-      <div className="fixed inset-0 bg-[#0a0a0f] overflow-y-auto">
+      <div className="fixed inset-0 bg-[#060608] overflow-y-auto">
         <div className="max-w-2xl mx-auto py-16 px-6 text-center">
+          <p className="font-mono text-[10px] tracking-[0.45em] text-amber-900/80 mb-6 uppercase">
+            Sherlock AI
+          </p>
           <div className="relative inline-block mb-8">
-            <div className="text-green-500 font-mono text-6xl font-bold tracking-wider rotate-[-5deg] border-4 border-green-500 px-8 py-4">
+            <div className="text-green-500 font-display text-5xl md:text-6xl font-semibold tracking-wider rotate-[-4deg] border-4 border-green-600/80 px-8 py-4">
               CASE CLOSED
             </div>
           </div>
 
-          <h2 className="text-3xl text-gray-200 font-light mb-8">
-            YOU GOT IT, DETECTIVE {quizAnswers.detectiveName.toUpperCase()}.
+          <h2 className="font-display text-2xl md:text-3xl text-amber-100/90 font-normal mb-8 tracking-wide">
+            Well played, Detective {quizAnswers.detectiveName}.
           </h2>
 
           <p className="text-xl text-gray-400 mb-8">
             <span className="text-red-500">{guiltySuspect.name}</span> did it.
           </p>
+
+          {(quizAnswers.personalDetail.trim() || crimeCase.personalizedDetail?.trim()) && (
+            <div className="border border-amber-900/30 bg-amber-950/10 p-6 mb-8 text-left max-w-xl mx-auto">
+              <p className="text-amber-600/80 font-mono text-xs tracking-wider mb-3">
+                YOUR STAKE IN THIS CASE
+              </p>
+              {quizAnswers.personalDetail.trim() ? (
+                <p className="text-gray-500 text-sm mb-2">
+                  You said: &ldquo;{quizAnswers.personalDetail.trim()}&rdquo;
+                </p>
+              ) : null}
+              {crimeCase.personalizedDetail?.trim() ? (
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  {crimeCase.personalizedDetail.trim()}
+                </p>
+              ) : null}
+            </div>
+          )}
 
           <div className="border border-gray-800 bg-gray-900/30 p-8 mb-8 text-left">
             <p className="text-gray-600 font-mono text-xs tracking-wider mb-4">
@@ -101,7 +122,7 @@ export default function RevealScreen() {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(
-                  `I solved CrimeScene.AI Case #${crimeCase.caseNumber} in ${timeSpent} minutes with ${interrogation.questionsAsked} questions! Can you do better?`
+                  `I solved a Sherlock AI case (#${crimeCase.caseNumber}) in ${timeSpent} minutes with ${interrogation.questionsAsked} questions. Can you do better?`
                 );
               }}
               className="px-8 py-3 border border-gray-800 text-gray-400 font-mono text-sm tracking-wider
@@ -116,15 +137,18 @@ export default function RevealScreen() {
   }
 
   return (
-    <div className="fixed inset-0 bg-[#0a0808] overflow-y-auto">
+    <div className="fixed inset-0 bg-[#060608] overflow-y-auto">
       <div className="max-w-2xl mx-auto py-16 px-6 text-center">
+        <p className="font-mono text-[10px] tracking-[0.45em] text-amber-900/80 mb-6 uppercase">
+          Sherlock AI
+        </p>
         <div className="relative inline-block mb-8">
           <div className="text-4xl mb-4">💀</div>
           <div className="crack-effect" />
         </div>
 
-        <h2 className="text-3xl text-gray-200 font-light mb-6">
-          WRONG, DETECTIVE {quizAnswers.detectiveName.toUpperCase()}.
+        <h2 className="font-display text-2xl md:text-3xl text-gray-300 font-normal mb-6 tracking-wide">
+          Not this time, Detective {quizAnswers.detectiveName}.
         </h2>
 
         <p className="text-gray-400 mb-2">
@@ -139,6 +163,24 @@ export default function RevealScreen() {
           It was <span className="font-bold">{guiltySuspect.name}</span> all
           along.
         </p>
+
+        {(quizAnswers.personalDetail.trim() || crimeCase.personalizedDetail?.trim()) && (
+          <div className="border border-amber-900/30 bg-amber-950/10 p-6 mb-8 text-left max-w-xl mx-auto">
+            <p className="text-amber-600/80 font-mono text-xs tracking-wider mb-3">
+              YOUR STAKE IN THIS CASE
+            </p>
+            {quizAnswers.personalDetail.trim() ? (
+              <p className="text-gray-500 text-sm mb-2">
+                You said: &ldquo;{quizAnswers.personalDetail.trim()}&rdquo;
+              </p>
+            ) : null}
+            {crimeCase.personalizedDetail?.trim() ? (
+              <p className="text-gray-300 text-sm leading-relaxed">
+                {crimeCase.personalizedDetail.trim()}
+              </p>
+            ) : null}
+          </div>
+        )}
 
         <div className="border border-gray-800 bg-gray-900/30 p-8 mb-8 text-left">
           <p className="text-gray-600 font-mono text-xs tracking-wider mb-4">

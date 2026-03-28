@@ -30,8 +30,8 @@ const SCREEN_PROMPTS: Record<Screen, WeightedPrompt[] | null> = {
   // loading/casefile use setting-specific prompts — handled at runtime
   loading: null,
   casefile: null,
-  interrogation: [
-    { text: "Dark tension music, slow pulsing bass, ominous atmosphere, building suspense, noir thriller, tense", weight: 1.0 },
+  investigation: [
+    { text: "Dark tension music, slow pulsing bass, ominous atmosphere, building suspense, Victorian mystery, tense", weight: 1.0 },
   ],
   accusation: [
     { text: "Dramatic single sustained bass note, heavy tension, sparse noir, minimal, foreboding, decisive moment", weight: 1.0 },
@@ -148,7 +148,7 @@ export default function MusicManager() {
   // Adjust volume: quieter during interrogation so voice is clear
   useEffect(() => {
     if (!clientRef.current) return;
-    const volume = screen === "interrogation" ? 0.2 : 0.4;
+    const volume = screen === "investigation" ? 0.2 : 0.4;
     clientRef.current.setVolume(volume);
   }, [screen]);
 
