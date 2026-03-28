@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { getCachedPortraitUrl, savePortraitToCache } from "@/lib/generatedCache";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +26,13 @@ export async function POST(req: NextRequest) {
     };
 
     const style = settingStyles[setting] || "dramatic noir lighting";
+
+    // Return cached portrait if available
+    const cachedUrl = getCachedPortraitUrl(name, occupation, setting);
+    if (cachedUrl) {
+      console.log("🗂️  Serving cached portrait for", name);
+      return NextResponse.json({ imageUrl: cachedUrl });
+    }
 
     const prompt = `Generate a dramatic portrait photograph of a crime suspect for a detective game.
 
@@ -57,14 +65,16 @@ Requirements:
 
     for (const part of parts) {
       if (part.inlineData?.data && part.inlineData?.mimeType) {
-        const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        return NextResponse.json({ imageData: dataUrl });
+        // Save to disk and return a URL instead of raw base64
+        const imageUrl = savePortraitToCache(name, occupation, setting, part.inlineData.data, part.inlineData.mimeType);
+        console.log("💾  Saved portrait for", name, "→", imageUrl);
+        return NextResponse.json({ imageUrl });
       }
     }
 
-    return NextResponse.json({ imageData: null });
+    return NextResponse.json({ imageUrl: null });
   } catch (error) {
     console.error("Portrait generation error:", error);
-    return NextResponse.json({ imageData: null });
+    return NextResponse.json({ imageUrl: null });
   }
 }

@@ -7,6 +7,13 @@ import { buildInterrogationSystemPrompt } from "@/lib/prompts";
 
 type VoiceMode = "text" | "live";
 
+const SETTING_LABELS: Record<string, string> = {
+  "noir-city": "a 1940s noir city",
+  "medieval-castle": "a medieval castle",
+  "space-station": "a deep-space station",
+  "small-town": "a quiet small town",
+};
+
 export default function InterrogationScreen() {
   const {
     crimeCase,
@@ -26,10 +33,12 @@ export default function InterrogationScreen() {
   const [voiceMode, setVoiceMode] = useState<VoiceMode>("text");
   const [liveConnected, setLiveConnected] = useState(false);
   const [liveConnecting, setLiveConnecting] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
   const [suspectSpeaking, setSuspectSpeaking] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const liveClientRef = useRef<LiveApiClient | null>(null);
   const apiKeyRef = useRef<string | null>(null);
+  const setupTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentSuspect =
     crimeCase?.suspects[interrogation.currentSuspectIndex];
@@ -40,12 +49,14 @@ export default function InterrogationScreen() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat]);
 
-  const settingLabels: Record<string, string> = {
-    "noir-city": "a 1940s noir city",
-    "medieval-castle": "a medieval castle",
-    "space-station": "a deep-space station",
-    "small-town": "a quiet small town",
-  };
+  const dropToTextMode = useCallback((reason?: string) => {
+    setVoiceMode("text");
+    setLiveConnected(false);
+    setLiveConnecting(false);
+    setIsRecording(false);
+    if (reason) setLiveError(reason);
+    if (setupTimeoutRef.current) clearTimeout(setupTimeoutRef.current);
+  }, []);
 
   const connectLiveApi = useCallback(
     async (suspectIdx: number) => {
@@ -55,6 +66,9 @@ export default function InterrogationScreen() {
       if (!suspect) return;
 
       setLiveConnecting(true);
+      setLiveConnected(false);
+      setLiveError(null);
+      if (setupTimeoutRef.current) clearTimeout(setupTimeoutRef.current);
 
       try {
         if (!apiKeyRef.current) {
@@ -64,7 +78,8 @@ export default function InterrogationScreen() {
         }
 
         if (!apiKeyRef.current) {
-          throw new Error("Failed to get API key");
+          dropToTextMode("API key unavailable");
+          return;
         }
 
         if (liveClientRef.current) {
@@ -89,12 +104,19 @@ export default function InterrogationScreen() {
             }
           },
           onConnectionChange: (connected) => {
-            setLiveConnected(connected);
-            setLiveConnecting(false);
+            if (connected) {
+              setLiveConnected(true);
+              setLiveConnecting(false);
+              setLiveError(null);
+              if (setupTimeoutRef.current) clearTimeout(setupTimeoutRef.current);
+            } else {
+              // Connection dropped — fall back to text
+              dropToTextMode("Connection lost. Switched to text mode.");
+            }
           },
           onError: (error) => {
             console.error("Live API error:", error);
-            setLiveConnecting(false);
+            dropToTextMode("Voice connection failed — check your API key.");
           },
           onAudioStart: () => setSuspectSpeaking(true),
           onAudioEnd: () => setSuspectSpeaking(false),
@@ -103,30 +125,35 @@ export default function InterrogationScreen() {
         const systemPrompt = buildInterrogationSystemPrompt(
           suspect.name,
           suspect,
-          settingLabels[quizAnswers.setting] || quizAnswers.setting,
+          SETTING_LABELS[quizAnswers.setting] || quizAnswers.setting,
           `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`
         );
 
-        await client.connect(
-          apiKeyRef.current,
-          systemPrompt,
-          suspectIdx
-        );
-
+        await client.connect(apiKeyRef.current, systemPrompt, suspectIdx);
         liveClientRef.current = client;
+
+        // If setupComplete hasn't arrived in 10 seconds, give up
+        setupTimeoutRef.current = setTimeout(() => {
+          if (!liveClientRef.current?.connected) {
+            dropToTextMode("Connection timed out. Switched to text mode.");
+          }
+        }, 10000);
+
       } catch (error) {
         console.error("Failed to connect Live API:", error);
-        setVoiceMode("text");
-        setLiveConnecting(false);
+        dropToTextMode("Failed to start voice mode.");
       }
     },
-    [crimeCase, quizAnswers, addMessage, incrementQuestions, settingLabels]
+    [crimeCase, quizAnswers, addMessage, incrementQuestions, dropToTextMode]
   );
 
   useEffect(() => {
     return () => {
       if (liveClientRef.current) {
         liveClientRef.current.disconnect();
+      }
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
       }
     };
   }, []);
@@ -193,7 +220,7 @@ export default function InterrogationScreen() {
           body: JSON.stringify({
             suspectData: currentSuspect,
             setting:
-              settingLabels[quizAnswers.setting] || quizAnswers.setting,
+              SETTING_LABELS[quizAnswers.setting] || quizAnswers.setting,
             crimeContext: `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`,
             chatHistory: historyForApi,
             userMessage: text.trim(),
@@ -225,7 +252,6 @@ export default function InterrogationScreen() {
       interrogation.currentSuspectIndex,
       addMessage,
       incrementQuestions,
-      settingLabels,
     ]
   );
 
@@ -242,6 +268,29 @@ export default function InterrogationScreen() {
     }
     setIsRecording(false);
   }, []);
+
+  // Cmd (Mac) hold-to-speak shortcut
+  useEffect(() => {
+    if (voiceMode !== "live") return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Meta" && !e.repeat) {
+        handleMicDown();
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Meta") {
+        handleMicUp();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [voiceMode, handleMicDown, handleMicUp]);
 
   if (!crimeCase || !currentSuspect) return null;
 
@@ -347,16 +396,22 @@ export default function InterrogationScreen() {
               {liveConnecting ? "..." : "VOICE"}
             </button>
           </div>
-          {voiceMode === "live" && (
+          {voiceMode === "live" && !liveError && (
             <div className="mt-2 flex items-center gap-1.5">
               <div
                 className={`w-1.5 h-1.5 rounded-full ${
-                  liveConnected ? "bg-green-500" : "bg-gray-600"
-                } ${liveConnected ? "animate-pulse" : ""}`}
+                  liveConnected ? "bg-green-500" : "bg-yellow-600 animate-pulse"
+                }`}
               />
               <span className="text-gray-600 font-mono text-[10px]">
                 {liveConnected ? "LIVE CONNECTION ACTIVE" : "CONNECTING..."}
               </span>
+            </div>
+          )}
+          {liveError && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+              <span className="text-red-700 font-mono text-[10px]">{liveError}</span>
             </div>
           )}
         </div>
@@ -410,7 +465,7 @@ export default function InterrogationScreen() {
               <p className="mb-2">The suspect sits across from you.</p>
               <p className="text-xs text-gray-800">
                 {voiceMode === "live"
-                  ? "Hold the mic button and speak..."
+                  ? "Hold the mic button or ⌘ to speak..."
                   : "Ask your first question..."}
               </p>
             </div>
@@ -498,7 +553,7 @@ export default function InterrogationScreen() {
                       : "border-gray-800 text-gray-700 cursor-not-allowed"
                 }`}
               >
-                {isRecording ? "🎤 RECORDING..." : "🎤 HOLD TO SPEAK"}
+                {isRecording ? "🎤 RECORDING..." : "🎤 HOLD  /  ⌘"}
               </button>
             ) : (
               <button

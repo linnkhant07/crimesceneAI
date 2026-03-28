@@ -27,6 +27,7 @@ export class LiveApiClient {
   private currentTranscript = "";
   private playbackContext: AudioContext | null = null;
   private nextPlayTime = 0;
+  private setupComplete = false;
 
   constructor(callbacks: LiveApiCallbacks) {
     this.callbacks = callbacks;
@@ -41,6 +42,7 @@ export class LiveApiClient {
     this.ws.onopen = () => {
       const voiceName = SUSPECT_VOICES[suspectIndex % SUSPECT_VOICES.length];
 
+      // Wire format confirmed from SDK source: setup → generationConfig → responseModalities/speechConfig
       const configMessage = {
         setup: {
           model: `models/${MODEL}`,
@@ -55,18 +57,13 @@ export class LiveApiClient {
           systemInstruction: {
             parts: [{ text: systemPrompt }],
           },
-          realtimeInputConfig: {
-            automaticActivityDetection: {
-              disabled: false,
-            },
-          },
           outputAudioTranscription: {},
           inputAudioTranscription: {},
         },
       };
 
       this.ws!.send(JSON.stringify(configMessage));
-      this.callbacks.onConnectionChange(true);
+      // Do NOT call onConnectionChange yet — wait for setupComplete from server
     };
 
     this.ws.onmessage = (event) => {
@@ -84,11 +81,19 @@ export class LiveApiClient {
     };
 
     this.ws.onclose = () => {
+      this.setupComplete = false;
       this.callbacks.onConnectionChange(false);
     };
   }
 
   private handleServerMessage(data: Record<string, unknown>) {
+    // Server confirms setup is ready — now signal the UI
+    if (data.setupComplete !== undefined) {
+      this.setupComplete = true;
+      this.callbacks.onConnectionChange(true);
+      return;
+    }
+
     const serverContent = data.serverContent as {
       modelTurn?: { parts?: Array<{ inlineData?: { data: string; mimeType: string }; text?: string }> };
       inputTranscription?: { text: string };
@@ -201,21 +206,18 @@ export class LiveApiClient {
         this.mediaStream
       );
 
-      // ScriptProcessorNode for capturing raw audio
       this.processorNode = this.audioContext.createScriptProcessor(4096, 1, 1);
       this.processorNode.onaudioprocess = (event) => {
         if (!this.isRecording || !this.ws) return;
 
         const inputData = event.inputBuffer.getChannelData(0);
 
-        // Resample to 16kHz if needed
         const resampled = this.resample(
           inputData,
           this.audioContext!.sampleRate,
           INPUT_SAMPLE_RATE
         );
 
-        // Convert Float32 to Int16
         const int16Data = new Int16Array(resampled.length);
         for (let i = 0; i < resampled.length; i++) {
           const s = Math.max(-1, Math.min(1, resampled[i]));
@@ -224,14 +226,13 @@ export class LiveApiClient {
 
         const base64 = this.arrayBufferToBase64(int16Data.buffer);
 
+        // Current Live API format: realtimeInput.audio (not mediaChunks)
         const audioMessage = {
           realtimeInput: {
-            mediaChunks: [
-              {
-                data: base64,
-                mimeType: "audio/pcm;rate=16000",
-              },
-            ],
+            audio: {
+              data: base64,
+              mimeType: "audio/pcm;rate=16000",
+            },
           },
         };
 
@@ -275,9 +276,8 @@ export class LiveApiClient {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
     const msg = {
-      clientContent: {
-        turns: [{ role: "user", parts: [{ text }] }],
-        turnComplete: true,
+      realtimeInput: {
+        text,
       },
     };
 
@@ -301,10 +301,11 @@ export class LiveApiClient {
     this.isPlaying = false;
     this.nextPlayTime = 0;
     this.currentTranscript = "";
+    this.setupComplete = false;
   }
 
   get connected() {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.ws?.readyState === WebSocket.OPEN && this.setupComplete;
   }
 
   private resample(

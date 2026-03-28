@@ -8,6 +8,7 @@ import CaseFileScreen from "@/components/CaseFileScreen";
 import InterrogationScreen from "@/components/InterrogationScreen";
 import AccusationScreen from "@/components/AccusationScreen";
 import RevealScreen from "@/components/RevealScreen";
+import MusicManager from "@/components/MusicManager";
 
 const SCREENS = {
   landing: LandingScreen,
@@ -23,5 +24,10 @@ export default function Home() {
   const screen = useGameStore((s) => s.screen);
   const ScreenComponent = SCREENS[screen];
 
-  return <ScreenComponent />;
+  return (
+    <>
+      <MusicManager />
+      <ScreenComponent />
+    </>
+  );
 }
