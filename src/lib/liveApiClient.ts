@@ -1,6 +1,15 @@
 const LIVE_API_WS_URL =
   "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
-const MODEL = "gemini-3.1-flash-live-preview";
+
+/** Must be a model with Live API support — see https://ai.google.dev/gemini-api/docs/models */
+const DEFAULT_LIVE_MODEL = "gemini-2.5-flash-native-audio-preview-12-2025";
+
+function getLiveModel(): string {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_GEMINI_LIVE_MODEL?.trim()) {
+    return process.env.NEXT_PUBLIC_GEMINI_LIVE_MODEL.trim();
+  }
+  return DEFAULT_LIVE_MODEL;
+}
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
@@ -30,6 +39,8 @@ export class LiveApiClient {
   private playbackContext: AudioContext | null = null;
   private nextPlayTime = 0;
   private setupComplete = false;
+  /** Avoid double onError when both ws.onerror and onclose(abnormal) fire */
+  private failureNotified = false;
 
   constructor(callbacks: LiveApiCallbacks) {
     this.callbacks = callbacks;
@@ -37,6 +48,7 @@ export class LiveApiClient {
 
   async connect(apiKey: string, systemPrompt: string, suspectIndex: number, gender: "male" | "female" = "male") {
     this.disconnect();
+    this.failureNotified = false;
 
     const url = `${LIVE_API_WS_URL}?key=${apiKey}`;
     this.ws = new WebSocket(url);
@@ -48,7 +60,7 @@ export class LiveApiClient {
       // Wire format confirmed from SDK source: setup → generationConfig → responseModalities/speechConfig
       const configMessage = {
         setup: {
-          model: `models/${MODEL}`,
+          model: `models/${getLiveModel()}`,
           generationConfig: {
             responseModalities: ["AUDIO"],
             speechConfig: {
@@ -81,17 +93,42 @@ export class LiveApiClient {
     };
 
     this.ws.onerror = () => {
-      this.callbacks.onError("WebSocket connection error");
+      if (!this.failureNotified) {
+        this.failureNotified = true;
+        this.callbacks.onError(
+          "WebSocket error (network, API key restrictions, or blocked WebSocket). See browser Network → WS."
+        );
+      }
       this.callbacks.onConnectionChange(false);
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (ev: CloseEvent) => {
       this.setupComplete = false;
       this.callbacks.onConnectionChange(false);
+      if (ev.code !== 1000 && !this.failureNotified) {
+        this.failureNotified = true;
+        const detail = ev.reason
+          ? `${ev.reason} (code ${ev.code})`
+          : `closed with code ${ev.code}`;
+        console.warn("[LiveAPI]", detail);
+        this.callbacks.onError(
+          `Live session ended: ${detail}. If this is immediate, the model id may be wrong or your key may not allow Live API.`
+        );
+      }
     };
   }
 
   private handleServerMessage(data: Record<string, unknown>) {
+    const errObj = data.error as { message?: string; code?: number } | undefined;
+    if (errObj?.message) {
+      if (!this.failureNotified) {
+        this.failureNotified = true;
+        this.callbacks.onError(errObj.message);
+      }
+      this.callbacks.onConnectionChange(false);
+      return;
+    }
+
     // Server confirms setup is ready — now signal the UI
     if (data.setupComplete !== undefined) {
       this.setupComplete = true;

@@ -12,7 +12,14 @@ const SETTING_LABELS: Record<string, string> = {
   "small-town": "a quiet small town",
 };
 
-export default function InterrogationScreen({ topOffset = false }: { topOffset?: boolean }) {
+export default function InterrogationScreen({
+  topOffset = false,
+  isActive = true,
+}: {
+  topOffset?: boolean;
+  /** When false, voice session is torn down (e.g. user on another investigation tab) */
+  isActive?: boolean;
+}) {
   const {
     crimeCase,
     quizAnswers,
@@ -82,7 +89,7 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
         }
 
         if (liveClientRef.current) {
-          liveClientRef.current.disconnect();
+          liveClientRef.current.disconnect(true);
         }
 
         const client = new LiveApiClient({
@@ -102,12 +109,14 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
               setLiveError(null);
               if (setupTimeoutRef.current) clearTimeout(setupTimeoutRef.current);
             } else {
-              resetConnection("Connection lost. Tap reconnect to try again.");
+              setLiveConnected(false);
+              setLiveConnecting(false);
+              setIsRecording(false);
             }
           },
           onError: (error) => {
             console.error("Live API error:", error);
-            resetConnection("Voice connection failed — check your API key.");
+            resetConnection(error);
           },
           onAudioStart: () => setSuspectSpeaking(true),
           onAudioEnd: () => {
@@ -154,25 +163,47 @@ export default function InterrogationScreen({ topOffset = false }: { topOffset?:
     [crimeCase, quizAnswers, addMessage, incrementQuestions, resetConnection]
   );
 
-  // Auto-connect when entering the screen
+  // Connect while interrogation tab is active; disconnect when hidden or unmounting
   useEffect(() => {
-    if (crimeCase && quizAnswers) {
-      connectLiveApi(interrogation.currentSuspectIndex);
+    if (!crimeCase || !quizAnswers) return;
+
+    if (!isActive) {
+      if (liveClientRef.current) liveClientRef.current.disconnect(true);
+      setLiveConnected(false);
+      setLiveConnecting(false);
+      setIsRecording(false);
+      setSuspectSpeaking(false);
+      setStreamingText(null);
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
+        setupTimeoutRef.current = null;
+      }
+      return;
     }
+
+    connectLiveApi(interrogation.currentSuspectIndex);
+
     return () => {
-      if (liveClientRef.current) liveClientRef.current.disconnect();
-      if (setupTimeoutRef.current) clearTimeout(setupTimeoutRef.current);
+      if (liveClientRef.current) liveClientRef.current.disconnect(true);
+      if (setupTimeoutRef.current) {
+        clearTimeout(setupTimeoutRef.current);
+        setupTimeoutRef.current = null;
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [
+    isActive,
+    crimeCase,
+    quizAnswers,
+    interrogation.currentSuspectIndex,
+    connectLiveApi,
+  ]);
 
   const handleSwitchSuspect = useCallback(
     (index: number) => {
       switchSuspect(index);
       setStreamingText(null);
-      connectLiveApi(index);
     },
-    [switchSuspect, connectLiveApi]
+    [switchSuspect]
   );
 
   const handleMicDown = useCallback(() => {

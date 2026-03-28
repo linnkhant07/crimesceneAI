@@ -51,14 +51,20 @@ export default function InvestigationScreen() {
 
       {/* Crime Scene tab — mounted but hidden when not active so Hayes stays connected */}
       <div className={activeTab === "crime-scene" ? "block" : "hidden"}>
-        <CrimeSceneTab taggedClues={taggedClues} onTagClue={handleTagClue} />
+        <CrimeSceneTab
+          taggedClues={taggedClues}
+          onTagClue={handleTagClue}
+          isActive={activeTab === "crime-scene"}
+        />
       </div>
 
-      {/* Suspects tab — only mounted after first visit so Live API doesn't
-          connect while the user is still on the crime scene tab */}
+      {/* Suspects tab — only mounted after first visit; Live API disconnects when tab hidden */}
       {suspectsEverOpened && (
         <div className={activeTab === "suspects" ? "block" : "hidden"}>
-          <InterrogationScreen topOffset />
+          <InterrogationScreen
+            topOffset
+            isActive={activeTab === "suspects"}
+          />
         </div>
       )}
     </>
