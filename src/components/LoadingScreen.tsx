@@ -16,6 +16,7 @@ export default function LoadingScreen() {
     quizAnswers,
     setCrimeCase,
     setSuspectPortrait,
+    setCrimeSceneImages,
     setScreen,
   } = useGameStore();
   const [currentStep, setCurrentStep] = useState(0);
@@ -80,7 +81,26 @@ export default function LoadingScreen() {
         await Promise.all(portraitPromises);
         await completeStep(1);
 
-        // Veo video generation disabled for now
+        // Step 3: Generate crime scene images
+        try {
+          const imgRes = await fetch("/api/generate-crime-scene-images", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              crimeSceneDescription: caseData.crimeSceneDescription,
+              setting: quizAnswers!.setting,
+              location: caseData.location,
+              clues: caseData.clues,
+              victimName: caseData.victim.name,
+            }),
+          });
+          const imgData = await imgRes.json();
+          if (imgData.images?.length) {
+            setCrimeSceneImages(imgData.images);
+          }
+        } catch {
+          // Crime scene images failed — continue without them
+        }
         await completeStep(2);
 
         // Step 4: Finalize
@@ -103,7 +123,7 @@ export default function LoadingScreen() {
     setGlitchActive(true);
     setTimeout(() => setGlitchActive(false), 2000);
     generate();
-  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setScreen]);
+  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setCrimeSceneImages, setScreen]);
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden">

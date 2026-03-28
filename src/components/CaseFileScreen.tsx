@@ -6,17 +6,9 @@ import { useGameStore } from "@/store/gameStore";
 const CLUE_ICONS = { obvious: "🔍", misleading: "🔍", key: "🔍" };
 
 export default function CaseFileScreen() {
-  const {
-    crimeCase,
-    quizAnswers,
-    setScreen,
-  } = useGameStore();
+  const { crimeCase, quizAnswers, setScreen, crimeSceneImages } = useGameStore();
   const [visible, setVisible] = useState(false);
   const [stampVisible, setStampVisible] = useState(false);
-
-  // Hardcoded crime scene video — place your video at public/crime-scene.mp4
-  const videoUrl = "/crime-scene.mp4";
-  const videoLoading = false;
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 300);
@@ -24,6 +16,8 @@ export default function CaseFileScreen() {
   }, []);
 
   if (!crimeCase || !quizAnswers) return null;
+
+  const previewImage = crimeSceneImages[0] ?? null;
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] overflow-y-auto">
@@ -41,27 +35,21 @@ export default function CaseFileScreen() {
 
           <div className="border-b border-gray-800 p-6">
             <h2 className="text-red-500 font-mono text-xs tracking-[0.3em] mb-1">
-              CLASSIFIED — DETECTIVE{" "}
-              {quizAnswers.detectiveName.toUpperCase()}
+              CLASSIFIED — DETECTIVE {quizAnswers.detectiveName.toUpperCase()}
             </h2>
-            <p className="text-gray-600 font-mono text-xs">
-              CASE #{crimeCase.caseNumber}
-            </p>
+            <p className="text-gray-600 font-mono text-xs">CASE #{crimeCase.caseNumber}</p>
           </div>
 
+          {/* Victim info */}
           <div className="p-6 border-b border-gray-800">
             <div className="grid grid-cols-2 gap-4 font-mono text-sm">
               <div>
                 <span className="text-gray-600">VICTIM: </span>
-                <span className="text-gray-300">
-                  {crimeCase.victim.name}, {crimeCase.victim.age}
-                </span>
+                <span className="text-gray-300">{crimeCase.victim.name}, {crimeCase.victim.age}</span>
               </div>
               <div>
                 <span className="text-gray-600">OCCUPATION: </span>
-                <span className="text-gray-300">
-                  {crimeCase.victim.occupation}
-                </span>
+                <span className="text-gray-300">{crimeCase.victim.occupation}</span>
               </div>
               <div>
                 <span className="text-gray-600">LOCATION: </span>
@@ -78,44 +66,35 @@ export default function CaseFileScreen() {
             </div>
           </div>
 
-          {/* Crime Scene Video / Description */}
+          {/* Crime Scene */}
           <div className="p-6 border-b border-gray-800">
-            <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-4">
-              CRIME SCENE
-            </h3>
-
-            {videoUrl ? (
-              <div className="relative w-full aspect-video bg-black mb-4 overflow-hidden">
-                <video
-                  src={videoUrl}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
+            <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-4">CRIME SCENE</h3>
+            {previewImage ? (
+              <div className="relative w-full aspect-video bg-black mb-4 overflow-hidden border border-gray-800">
+                <img
+                  src={previewImage.url}
+                  alt="Crime scene"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/70 px-2 py-1 rounded">
                   <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-red-500 font-mono text-[10px]">
-                    EVIDENCE
-                  </span>
+                  <span className="text-red-500 font-mono text-[10px]">EVIDENCE</span>
                 </div>
-              </div>
-            ) : videoLoading ? (
-              <div className="w-full aspect-video bg-gray-900 mb-4 flex items-center justify-center border border-gray-800">
-                <div className="text-center">
-                  <div className="flex gap-1 justify-center mb-2">
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" />
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                {crimeSceneImages.length > 1 && (
+                  <div className="absolute bottom-2 right-2 bg-black/70 px-2 py-1 rounded">
+                    <span className="text-gray-400 font-mono text-[10px]">
+                      +{crimeSceneImages.length - 1} MORE IN INVESTIGATION
+                    </span>
                   </div>
-                  <p className="text-gray-700 font-mono text-xs">
-                    CRIME SCENE FOOTAGE PROCESSING...
-                  </p>
-                </div>
+                )}
               </div>
-            ) : null}
-
+            ) : (
+              <div className="w-full aspect-video bg-gray-900/50 mb-4 flex items-center justify-center border border-gray-800/50">
+                <p className="text-gray-700 font-mono text-xs tracking-widest">
+                  SCENE PHOTOS IN INVESTIGATION
+                </p>
+              </div>
+            )}
             <p className="text-gray-400 text-sm leading-relaxed italic">
               {crimeCase.crimeSceneDescription}
             </p>
@@ -123,19 +102,13 @@ export default function CaseFileScreen() {
 
           {/* Evidence */}
           <div className="p-6 border-b border-gray-800">
-            <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-4">
-              EVIDENCE RECOVERED
-            </h3>
+            <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-4">EVIDENCE RECOVERED</h3>
             <div className="space-y-3">
               {crimeCase.clues.map((clue, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <span className="text-lg mt-[-2px]">
-                    {CLUE_ICONS[clue.type]}
-                  </span>
+                  <span className="text-lg mt-[-2px]">{CLUE_ICONS[clue.type]}</span>
                   <div>
-                    <span className="text-gray-500 font-mono text-xs mr-2">
-                      Clue {i + 1}:
-                    </span>
+                    <span className="text-gray-500 font-mono text-xs mr-2">Clue {i + 1}:</span>
                     <span className="text-gray-300 text-sm">{clue.text}</span>
                   </div>
                 </div>
@@ -145,43 +118,20 @@ export default function CaseFileScreen() {
 
           {/* Suspects */}
           <div className="p-6">
-            <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-6">
-              PERSONS OF INTEREST
-            </h3>
-            <div
-              className={`grid gap-4 ${
-                crimeCase.suspects.length === 2
-                  ? "grid-cols-2"
-                  : "grid-cols-3"
-              }`}
-            >
+            <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-6">PERSONS OF INTEREST</h3>
+            <div className={`grid gap-4 ${crimeCase.suspects.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
               {crimeCase.suspects.map((suspect, i) => (
-                <div
-                  key={i}
-                  className="border border-gray-800 p-4 hover:border-gray-700 transition-colors"
-                >
+                <div key={i} className="border border-gray-800 p-4 hover:border-gray-700 transition-colors">
                   <div className="w-full aspect-square bg-gray-900 mb-3 flex items-center justify-center overflow-hidden">
                     {suspect.portraitUrl ? (
-                      <img
-                        src={suspect.portraitUrl}
-                        alt={suspect.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={suspect.portraitUrl} alt={suspect.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="text-4xl text-gray-700">
-                        {["👤", "🧑", "👩"][i % 3]}
-                      </div>
+                      <div className="text-4xl text-gray-700">{["👤", "🧑", "👩"][i % 3]}</div>
                     )}
                   </div>
-                  <h4 className="text-gray-300 font-mono text-sm mb-1">
-                    {suspect.name}
-                  </h4>
-                  <p className="text-gray-600 text-xs mb-2">
-                    {suspect.age} · {suspect.occupation}
-                  </p>
-                  <p className="text-gray-500 text-xs italic">
-                    {suspect.relationship}
-                  </p>
+                  <h4 className="text-gray-300 font-mono text-sm mb-1">{suspect.name}</h4>
+                  <p className="text-gray-600 text-xs mb-2">{suspect.age} · {suspect.occupation}</p>
+                  <p className="text-gray-500 text-xs italic">{suspect.relationship}</p>
                 </div>
               ))}
             </div>
@@ -190,11 +140,11 @@ export default function CaseFileScreen() {
 
         <div className="mt-8 text-center">
           <button
-            onClick={() => setScreen("interrogation")}
+            onClick={() => setScreen("investigation")}
             className="px-12 py-4 border border-red-800/50 text-red-500 font-mono text-sm tracking-[0.3em]
                        hover:bg-red-500/10 hover:border-red-500/80 transition-all cursor-pointer uppercase"
           >
-            BEGIN INTERROGATION →
+            BEGIN INVESTIGATION →
           </button>
         </div>
       </div>

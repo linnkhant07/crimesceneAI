@@ -5,7 +5,7 @@ import LandingScreen from "@/components/LandingScreen";
 import QuizScreen from "@/components/QuizScreen";
 import LoadingScreen from "@/components/LoadingScreen";
 import CaseFileScreen from "@/components/CaseFileScreen";
-import InterrogationScreen from "@/components/InterrogationScreen";
+import InvestigationScreen from "@/components/InvestigationScreen";
 import AccusationScreen from "@/components/AccusationScreen";
 import RevealScreen from "@/components/RevealScreen";
 import MusicManager from "@/components/MusicManager";
@@ -15,7 +15,7 @@ const SCREENS = {
   quiz: QuizScreen,
   loading: LoadingScreen,
   casefile: CaseFileScreen,
-  interrogation: InterrogationScreen,
+  investigation: InvestigationScreen,
   accusation: AccusationScreen,
   reveal: RevealScreen,
 } as const;

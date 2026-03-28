@@ -14,7 +14,7 @@ const SETTING_LABELS: Record<string, string> = {
   "small-town": "a quiet small town",
 };
 
-export default function InterrogationScreen() {
+export default function InterrogationScreen({ topOffset = false }: { topOffset?: boolean }) {
   const {
     crimeCase,
     quizAnswers,
@@ -295,7 +295,7 @@ export default function InterrogationScreen() {
   if (!crimeCase || !currentSuspect) return null;
 
   return (
-    <div className="fixed inset-0 bg-[#0a0a0f] flex">
+    <div className={`fixed inset-0 bg-[#0a0a0f] flex ${topOffset ? "top-10" : ""}`}>
       {/* Left sidebar */}
       <div className="w-80 border-r border-gray-800 flex flex-col">
         <div className="p-6 border-b border-gray-800 flex-shrink-0">
