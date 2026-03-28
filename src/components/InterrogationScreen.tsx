@@ -2,6 +2,10 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useGameStore } from "@/store/gameStore";
+import { LiveApiClient } from "@/lib/liveApiClient";
+import { buildInterrogationSystemPrompt } from "@/lib/prompts";
+
+type VoiceMode = "text" | "live";
 
 export default function InterrogationScreen() {
   const {
@@ -19,9 +23,13 @@ export default function InterrogationScreen() {
   const [loading, setLoading] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [voiceMode, setVoiceMode] = useState<VoiceMode>("text");
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [liveConnecting, setLiveConnecting] = useState(false);
+  const [suspectSpeaking, setSuspectSpeaking] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const liveClientRef = useRef<LiveApiClient | null>(null);
+  const apiKeyRef = useRef<string | null>(null);
 
   const currentSuspect =
     crimeCase?.suspects[interrogation.currentSuspectIndex];
@@ -32,17 +40,136 @@ export default function InterrogationScreen() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat]);
 
-  const sendMessage = useCallback(
+  const settingLabels: Record<string, string> = {
+    "noir-city": "a 1940s noir city",
+    "medieval-castle": "a medieval castle",
+    "space-station": "a deep-space station",
+    "small-town": "a quiet small town",
+  };
+
+  const connectLiveApi = useCallback(
+    async (suspectIdx: number) => {
+      if (!crimeCase || !quizAnswers) return;
+
+      const suspect = crimeCase.suspects[suspectIdx];
+      if (!suspect) return;
+
+      setLiveConnecting(true);
+
+      try {
+        if (!apiKeyRef.current) {
+          const res = await fetch("/api/live-token");
+          const data = await res.json();
+          apiKeyRef.current = data.apiKey;
+        }
+
+        if (!apiKeyRef.current) {
+          throw new Error("Failed to get API key");
+        }
+
+        if (liveClientRef.current) {
+          liveClientRef.current.disconnect();
+        }
+
+        const client = new LiveApiClient({
+          onTranscriptUpdate: (role, text) => {
+            if (role === "suspect") {
+              addMessage(suspectIdx, {
+                role: "suspect",
+                content: text,
+                timestamp: Date.now(),
+              });
+            } else {
+              addMessage(suspectIdx, {
+                role: "user",
+                content: text,
+                timestamp: Date.now(),
+              });
+              incrementQuestions();
+            }
+          },
+          onConnectionChange: (connected) => {
+            setLiveConnected(connected);
+            setLiveConnecting(false);
+          },
+          onError: (error) => {
+            console.error("Live API error:", error);
+            setLiveConnecting(false);
+          },
+          onAudioStart: () => setSuspectSpeaking(true),
+          onAudioEnd: () => setSuspectSpeaking(false),
+        });
+
+        const systemPrompt = buildInterrogationSystemPrompt(
+          suspect.name,
+          suspect,
+          settingLabels[quizAnswers.setting] || quizAnswers.setting,
+          `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`
+        );
+
+        await client.connect(
+          apiKeyRef.current,
+          systemPrompt,
+          suspectIdx
+        );
+
+        liveClientRef.current = client;
+      } catch (error) {
+        console.error("Failed to connect Live API:", error);
+        setVoiceMode("text");
+        setLiveConnecting(false);
+      }
+    },
+    [crimeCase, quizAnswers, addMessage, incrementQuestions, settingLabels]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (liveClientRef.current) {
+        liveClientRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  const handleSwitchSuspect = useCallback(
+    (index: number) => {
+      switchSuspect(index);
+      if (voiceMode === "live") {
+        connectLiveApi(index);
+      }
+    },
+    [switchSuspect, voiceMode, connectLiveApi]
+  );
+
+  const toggleVoiceMode = useCallback(async () => {
+    if (voiceMode === "text") {
+      setVoiceMode("live");
+      await connectLiveApi(interrogation.currentSuspectIndex);
+    } else {
+      setVoiceMode("text");
+      if (liveClientRef.current) {
+        liveClientRef.current.disconnect();
+      }
+      setLiveConnected(false);
+    }
+  }, [voiceMode, connectLiveApi, interrogation.currentSuspectIndex]);
+
+  const sendTextMessage = useCallback(
     async (text: string) => {
       if (!text.trim() || !crimeCase || !currentSuspect || !quizAnswers)
         return;
 
-      const settingLabels: Record<string, string> = {
-        "noir-city": "a 1940s noir city",
-        "medieval-castle": "a medieval castle",
-        "space-station": "a deep-space station",
-        "small-town": "a quiet small town",
-      };
+      if (voiceMode === "live" && liveClientRef.current?.connected) {
+        liveClientRef.current.sendText(text.trim());
+        addMessage(interrogation.currentSuspectIndex, {
+          role: "user",
+          content: text.trim(),
+          timestamp: Date.now(),
+        });
+        incrementQuestions();
+        setInput("");
+        return;
+      }
 
       const userMsg = {
         role: "user" as const,
@@ -65,7 +192,8 @@ export default function InterrogationScreen() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             suspectData: currentSuspect,
-            setting: settingLabels[quizAnswers.setting] || quizAnswers.setting,
+            setting:
+              settingLabels[quizAnswers.setting] || quizAnswers.setting,
             crimeContext: `${crimeCase.victim.name} was found dead at ${crimeCase.location}. Cause of death: ${crimeCase.causeOfDeath}. Time: ${crimeCase.timeOfDeath}.`,
             chatHistory: historyForApi,
             userMessage: text.trim(),
@@ -73,12 +201,11 @@ export default function InterrogationScreen() {
         });
 
         const data = await res.json();
-        const suspectMsg = {
-          role: "suspect" as const,
+        addMessage(interrogation.currentSuspectIndex, {
+          role: "suspect",
           content: data.response || data.error || "...",
           timestamp: Date.now(),
-        };
-        addMessage(interrogation.currentSuspectIndex, suspectMsg);
+        });
       } catch {
         addMessage(interrogation.currentSuspectIndex, {
           role: "suspect",
@@ -94,60 +221,66 @@ export default function InterrogationScreen() {
       currentSuspect,
       quizAnswers,
       currentChat,
+      voiceMode,
       interrogation.currentSuspectIndex,
       addMessage,
       incrementQuestions,
+      settingLabels,
     ]
   );
 
-  function startVoiceRecording() {
-    if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-      alert("Speech recognition is not supported in this browser.");
-      return;
+  const handleMicDown = useCallback(() => {
+    if (voiceMode === "live" && liveClientRef.current?.connected) {
+      liveClientRef.current.startRecording();
+      setIsRecording(true);
     }
+  }, [voiceMode]);
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setIsRecording(false);
-      sendMessage(transcript);
-    };
-
-    recognition.onerror = () => {
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsRecording(true);
-  }
-
-  function stopVoiceRecording() {
-    recognitionRef.current?.stop();
-    mediaRecorderRef.current?.stop();
+  const handleMicUp = useCallback(() => {
+    if (liveClientRef.current) {
+      liveClientRef.current.stopRecording();
+    }
     setIsRecording(false);
-  }
+  }, []);
 
   if (!crimeCase || !currentSuspect) return null;
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex">
+      {/* Left sidebar */}
       <div className="w-80 border-r border-gray-800 flex flex-col">
         <div className="p-6 border-b border-gray-800 flex-shrink-0">
-          <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center rounded-sm">
-            <span className="text-6xl opacity-60">
-              {["👤", "🧑", "👩"][interrogation.currentSuspectIndex % 3]}
-            </span>
+          <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center rounded-sm overflow-hidden relative">
+            {currentSuspect.portraitUrl ? (
+              <img
+                src={currentSuspect.portraitUrl}
+                alt={currentSuspect.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-6xl opacity-60">
+                {["👤", "🧑", "👩"][interrogation.currentSuspectIndex % 3]}
+              </span>
+            )}
+            {suspectSpeaking && (
+              <div className="absolute bottom-2 left-2 right-2 flex items-center gap-1 bg-black/80 px-2 py-1 rounded">
+                <div className="flex gap-0.5">
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <div
+                      key={i}
+                      className="w-0.5 bg-red-500 rounded-full animate-pulse"
+                      style={{
+                        height: `${8 + Math.random() * 12}px`,
+                        animationDelay: `${i * 0.1}s`,
+                      }}
+                    />
+                  ))}
+                </div>
+                <span className="text-red-500 font-mono text-[10px] ml-1">
+                  SPEAKING
+                </span>
+              </div>
+            )}
           </div>
           <h3 className="text-gray-200 font-mono text-lg mb-1">
             {currentSuspect.name}
@@ -163,6 +296,7 @@ export default function InterrogationScreen() {
           </div>
         </div>
 
+        {/* Suspect switcher */}
         <div className="p-4 border-b border-gray-800 flex-shrink-0">
           <p className="text-gray-600 font-mono text-xs tracking-wider mb-3">
             SWITCH SUSPECT:
@@ -171,7 +305,7 @@ export default function InterrogationScreen() {
             {crimeCase.suspects.map((s, i) => (
               <button
                 key={i}
-                onClick={() => switchSuspect(i)}
+                onClick={() => handleSwitchSuspect(i)}
                 className={`flex-1 py-2 px-3 font-mono text-xs border transition-all cursor-pointer ${
                   i === interrogation.currentSuspectIndex
                     ? "border-red-800 text-red-500 bg-red-500/10"
@@ -184,6 +318,50 @@ export default function InterrogationScreen() {
           </div>
         </div>
 
+        {/* Voice mode toggle */}
+        <div className="p-4 border-b border-gray-800 flex-shrink-0">
+          <p className="text-gray-600 font-mono text-xs tracking-wider mb-3">
+            INTERROGATION MODE:
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={toggleVoiceMode}
+              disabled={liveConnecting}
+              className={`flex-1 py-2 px-3 font-mono text-xs border transition-all cursor-pointer ${
+                voiceMode === "text"
+                  ? "border-red-800 text-red-500 bg-red-500/10"
+                  : "border-gray-800 text-gray-500 hover:border-gray-700"
+              }`}
+            >
+              TEXT
+            </button>
+            <button
+              onClick={toggleVoiceMode}
+              disabled={liveConnecting}
+              className={`flex-1 py-2 px-3 font-mono text-xs border transition-all cursor-pointer ${
+                voiceMode === "live"
+                  ? "border-red-800 text-red-500 bg-red-500/10"
+                  : "border-gray-800 text-gray-500 hover:border-gray-700"
+              }`}
+            >
+              {liveConnecting ? "..." : "VOICE"}
+            </button>
+          </div>
+          {voiceMode === "live" && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  liveConnected ? "bg-green-500" : "bg-gray-600"
+                } ${liveConnected ? "animate-pulse" : ""}`}
+              />
+              <span className="text-gray-600 font-mono text-[10px]">
+                {liveConnected ? "LIVE CONNECTION ACTIVE" : "CONNECTING..."}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
         <div className="flex-1 p-4 overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <p className="text-gray-600 font-mono text-xs tracking-wider">
@@ -208,6 +386,7 @@ export default function InterrogationScreen() {
         </div>
       </div>
 
+      {/* Chat area */}
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <div>
@@ -230,7 +409,9 @@ export default function InterrogationScreen() {
             <div className="text-center text-gray-700 font-mono text-sm py-12">
               <p className="mb-2">The suspect sits across from you.</p>
               <p className="text-xs text-gray-800">
-                Ask your first question...
+                {voiceMode === "live"
+                  ? "Hold the mic button and speak..."
+                  : "Ask your first question..."}
               </p>
             </div>
           )}
@@ -251,7 +432,7 @@ export default function InterrogationScreen() {
               >
                 <p className="text-gray-600 font-mono text-xs mb-1">
                   {msg.role === "user"
-                    ? `▸ You:`
+                    ? "▸ You:"
                     : `▸ ${currentSuspect.name}:`}
                 </p>
                 <p
@@ -273,14 +454,8 @@ export default function InterrogationScreen() {
                 </p>
                 <div className="flex gap-1">
                   <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" />
-                  <div
-                    className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  />
-                  <div
-                    className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  />
+                  <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                  <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
                 </div>
               </div>
             </div>
@@ -289,40 +464,53 @@ export default function InterrogationScreen() {
           <div ref={chatEndRef} />
         </div>
 
+        {/* Input area */}
         <div className="p-4 border-t border-gray-800">
           <div className="flex gap-3">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) =>
-                e.key === "Enter" && !e.shiftKey && sendMessage(input)
+                e.key === "Enter" && !e.shiftKey && sendTextMessage(input)
               }
-              placeholder="Ask your question..."
+              placeholder={
+                voiceMode === "live"
+                  ? "Type or hold mic to speak..."
+                  : "Ask your question..."
+              }
               className="flex-1 bg-gray-900/50 border border-gray-800 text-gray-300 px-4 py-3 font-mono text-sm
                          focus:outline-none focus:border-gray-700 placeholder:text-gray-700"
               disabled={loading}
             />
-            <button
-              onMouseDown={startVoiceRecording}
-              onMouseUp={stopVoiceRecording}
-              onMouseLeave={stopVoiceRecording}
-              className={`px-4 py-3 border font-mono text-sm transition-all cursor-pointer ${
-                isRecording
-                  ? "border-red-500 text-red-500 bg-red-500/20 animate-pulse"
-                  : "border-gray-800 text-gray-500 hover:border-gray-700"
-              }`}
-            >
-              🎤
-            </button>
-            <button
-              onClick={() => sendMessage(input)}
-              disabled={!input.trim() || loading}
-              className="px-6 py-3 border border-gray-800 text-gray-400 font-mono text-sm
-                         hover:border-red-800/60 hover:text-gray-200 transition-all
-                         disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-            >
-              SEND
-            </button>
+            {voiceMode === "live" ? (
+              <button
+                onMouseDown={handleMicDown}
+                onMouseUp={handleMicUp}
+                onMouseLeave={handleMicUp}
+                onTouchStart={handleMicDown}
+                onTouchEnd={handleMicUp}
+                disabled={!liveConnected}
+                className={`px-6 py-3 border font-mono text-sm transition-all cursor-pointer ${
+                  isRecording
+                    ? "border-red-500 text-red-500 bg-red-500/20 animate-pulse"
+                    : liveConnected
+                      ? "border-gray-800 text-gray-400 hover:border-red-800/60"
+                      : "border-gray-800 text-gray-700 cursor-not-allowed"
+                }`}
+              >
+                {isRecording ? "🎤 RECORDING..." : "🎤 HOLD TO SPEAK"}
+              </button>
+            ) : (
+              <button
+                onClick={() => sendTextMessage(input)}
+                disabled={!input.trim() || loading}
+                className="px-6 py-3 border border-gray-800 text-gray-400 font-mono text-sm
+                           hover:border-red-800/60 hover:text-gray-200 transition-all
+                           disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+              >
+                SEND
+              </button>
+            )}
           </div>
 
           <div className="mt-4 text-center">

@@ -1,19 +1,61 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useGameStore } from "@/store/gameStore";
 
 const CLUE_ICONS = { obvious: "🔍", misleading: "🔍", key: "🔍" };
 
 export default function CaseFileScreen() {
-  const { crimeCase, quizAnswers, setScreen } = useGameStore();
+  const {
+    crimeCase,
+    quizAnswers,
+    videoOperationName,
+    videoUrl,
+    setVideoUrl,
+    setScreen,
+  } = useGameStore();
   const [visible, setVisible] = useState(false);
   const [stampVisible, setStampVisible] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(!!videoOperationName);
+  const pollRef = useRef<ReturnType<typeof setInterval>>(null);
+
+  const pollVideo = useCallback(async () => {
+    if (!videoOperationName || videoUrl) return;
+
+    try {
+      const res = await fetch(
+        `/api/video-status?id=${encodeURIComponent(videoOperationName)}`
+      );
+      const data = await res.json();
+
+      if (data.done && data.videoUri) {
+        const proxyUrl = `/api/video-download?uri=${encodeURIComponent(data.videoUri)}`;
+        setVideoUrl(proxyUrl);
+        setVideoLoading(false);
+        if (pollRef.current) clearInterval(pollRef.current);
+      } else if (data.error) {
+        setVideoLoading(false);
+        if (pollRef.current) clearInterval(pollRef.current);
+      }
+    } catch {
+      // keep polling
+    }
+  }, [videoOperationName, videoUrl, setVideoUrl]);
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 300);
     setTimeout(() => setStampVisible(true), 1000);
   }, []);
+
+  useEffect(() => {
+    if (videoOperationName && !videoUrl) {
+      pollRef.current = setInterval(pollVideo, 10000);
+      pollVideo();
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [videoOperationName, videoUrl, pollVideo]);
 
   if (!crimeCase || !quizAnswers) return null;
 
@@ -32,16 +74,13 @@ export default function CaseFileScreen() {
           )}
 
           <div className="border-b border-gray-800 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-red-500 font-mono text-xs tracking-[0.3em] mb-1">
-                  CLASSIFIED — DETECTIVE {quizAnswers.detectiveName.toUpperCase()}
-                </h2>
-                <p className="text-gray-600 font-mono text-xs">
-                  CASE #{crimeCase.caseNumber}
-                </p>
-              </div>
-            </div>
+            <h2 className="text-red-500 font-mono text-xs tracking-[0.3em] mb-1">
+              CLASSIFIED — DETECTIVE{" "}
+              {quizAnswers.detectiveName.toUpperCase()}
+            </h2>
+            <p className="text-gray-600 font-mono text-xs">
+              CASE #{crimeCase.caseNumber}
+            </p>
           </div>
 
           <div className="p-6 border-b border-gray-800">
@@ -73,15 +112,50 @@ export default function CaseFileScreen() {
             </div>
           </div>
 
+          {/* Crime Scene Video / Description */}
           <div className="p-6 border-b border-gray-800">
             <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-4">
               CRIME SCENE
             </h3>
+
+            {videoUrl ? (
+              <div className="relative w-full aspect-video bg-black mb-4 overflow-hidden">
+                <video
+                  src={videoUrl}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/70 px-2 py-1 rounded">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-red-500 font-mono text-[10px]">
+                    EVIDENCE
+                  </span>
+                </div>
+              </div>
+            ) : videoLoading ? (
+              <div className="w-full aspect-video bg-gray-900 mb-4 flex items-center justify-center border border-gray-800">
+                <div className="text-center">
+                  <div className="flex gap-1 justify-center mb-2">
+                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" />
+                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }} />
+                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }} />
+                  </div>
+                  <p className="text-gray-700 font-mono text-xs">
+                    CRIME SCENE FOOTAGE PROCESSING...
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <p className="text-gray-400 text-sm leading-relaxed italic">
               {crimeCase.crimeSceneDescription}
             </p>
           </div>
 
+          {/* Evidence */}
           <div className="p-6 border-b border-gray-800">
             <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-4">
               EVIDENCE RECOVERED
@@ -103,13 +177,16 @@ export default function CaseFileScreen() {
             </div>
           </div>
 
+          {/* Suspects */}
           <div className="p-6">
             <h3 className="text-gray-500 font-mono text-xs tracking-[0.2em] mb-6">
               PERSONS OF INTEREST
             </h3>
             <div
               className={`grid gap-4 ${
-                crimeCase.suspects.length === 2 ? "grid-cols-2" : "grid-cols-3"
+                crimeCase.suspects.length === 2
+                  ? "grid-cols-2"
+                  : "grid-cols-3"
               }`}
             >
               {crimeCase.suspects.map((suspect, i) => (
@@ -117,10 +194,18 @@ export default function CaseFileScreen() {
                   key={i}
                   className="border border-gray-800 p-4 hover:border-gray-700 transition-colors"
                 >
-                  <div className="w-full aspect-square bg-gray-900 mb-3 flex items-center justify-center">
-                    <div className="text-4xl text-gray-700">
-                      {["👤", "🧑", "👩"][i % 3]}
-                    </div>
+                  <div className="w-full aspect-square bg-gray-900 mb-3 flex items-center justify-center overflow-hidden">
+                    {suspect.portraitUrl ? (
+                      <img
+                        src={suspect.portraitUrl}
+                        alt={suspect.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-4xl text-gray-700">
+                        {["👤", "🧑", "👩"][i % 3]}
+                      </div>
+                    )}
                   </div>
                   <h4 className="text-gray-300 font-mono text-sm mb-1">
                     {suspect.name}

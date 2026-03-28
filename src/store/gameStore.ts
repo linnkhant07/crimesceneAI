@@ -17,10 +17,15 @@ interface GameState {
   accusedSuspectIndex: number | null;
   isCorrect: boolean | null;
   startTime: number | null;
+  videoUrl: string | null;
+  videoOperationName: string | null;
 
   setScreen: (screen: Screen) => void;
   setQuizAnswers: (answers: QuizAnswers) => void;
   setCrimeCase: (crimeCase: CrimeCase) => void;
+  setSuspectPortrait: (index: number, dataUrl: string) => void;
+  setVideoUrl: (url: string) => void;
+  setVideoOperationName: (name: string) => void;
   switchSuspect: (index: number) => void;
   addMessage: (suspectIndex: number, message: ChatMessage) => void;
   updateNotes: (notes: string) => void;
@@ -45,6 +50,8 @@ export const useGameStore = create<GameState>((set) => ({
   accusedSuspectIndex: null,
   isCorrect: null,
   startTime: null,
+  videoUrl: null,
+  videoOperationName: null,
 
   setScreen: (screen) => set({ screen }),
   setQuizAnswers: (answers) => set({ quizAnswers: answers }),
@@ -59,6 +66,17 @@ export const useGameStore = create<GameState>((set) => ({
         ),
       },
     }),
+
+  setSuspectPortrait: (index, dataUrl) =>
+    set((state) => {
+      if (!state.crimeCase) return {};
+      const suspects = [...state.crimeCase.suspects];
+      suspects[index] = { ...suspects[index], portraitUrl: dataUrl };
+      return { crimeCase: { ...state.crimeCase, suspects } };
+    }),
+
+  setVideoUrl: (url) => set({ videoUrl: url }),
+  setVideoOperationName: (name) => set({ videoOperationName: name }),
 
   switchSuspect: (index) =>
     set((state) => ({
@@ -111,5 +129,7 @@ export const useGameStore = create<GameState>((set) => ({
       accusedSuspectIndex: null,
       isCorrect: null,
       startTime: null,
+      videoUrl: null,
+      videoOperationName: null,
     }),
 }));
