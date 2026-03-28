@@ -9,9 +9,11 @@ import type { TaggedClue } from "@/types/game";
 interface CrimeSceneTabProps {
   taggedClues: TaggedClue[];
   onTagClue: (clue: TaggedClue) => void;
+  /** When false, Live API is disconnected so audio cannot stack with interrogation */
+  isActive: boolean;
 }
 
-export default function CrimeSceneTab({ taggedClues, onTagClue }: CrimeSceneTabProps) {
+export default function CrimeSceneTab({ taggedClues, onTagClue, isActive }: CrimeSceneTabProps) {
   const { crimeCase, quizAnswers, crimeSceneImages, interrogation, updateNotes } = useGameStore();
 
   const [imageIndex, setImageIndex] = useState(0);
@@ -119,14 +121,21 @@ export default function CrimeSceneTab({ taggedClues, onTagClue }: CrimeSceneTabP
     }
   }, [crimeCase, quizAnswers, crimeSceneImages]);
 
-  // Connect on mount
+  // Connect only while this tab is visible — avoids two Live sessions playing at once
   useEffect(() => {
+    if (!isActive) {
+      liveClientRef.current?.disconnect(true);
+      setHayesConnected(false);
+      setHayesConnecting(false);
+      setHayesSpeaking(false);
+      setIsRecording(false);
+      return;
+    }
     connectHayes();
     return () => {
       liveClientRef.current?.disconnect(true);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isActive, connectHayes]);
 
   const handleMicDown = useCallback(() => {
     if (liveClientRef.current?.connected) {

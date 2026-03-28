@@ -89,11 +89,15 @@ export default function MusicManager() {
 
       const prompts = getPrompts(s);
 
+      // Always tear down the previous session so buffered chunks cannot stack
+      // when prompts or screens change (updatePrompts alone keeps old audio playing).
       if (clientRef.current) {
         clientRef.current.disconnect();
+        clientRef.current = null;
       }
+      connectedRef.current = false;
 
-      clientRef.current = new LyriaClient({
+      const client = new LyriaClient({
         onConnectionChange: (connected) => {
           connectedRef.current = connected;
         },
@@ -102,7 +106,8 @@ export default function MusicManager() {
         },
       });
 
-      await clientRef.current.connect(apiKeyRef.current, prompts);
+      clientRef.current = client;
+      await client.connect(apiKeyRef.current, prompts);
     },
     [getPrompts]
   );
@@ -114,8 +119,9 @@ export default function MusicManager() {
     const handleInteraction = () => {
       if (started) return;
       started = true;
-      initMusic(screen);
-      currentScreenRef.current = screen;
+      const currentScreen = useGameStore.getState().screen;
+      currentScreenRef.current = currentScreen;
+      void initMusic(currentScreen);
       window.removeEventListener("click", handleInteraction);
       window.removeEventListener("keydown", handleInteraction);
     };
@@ -127,23 +133,16 @@ export default function MusicManager() {
       window.removeEventListener("click", handleInteraction);
       window.removeEventListener("keydown", handleInteraction);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initMusic]);
 
-  // Switch music when screen changes
+  // Switch music when screen changes — full reconnect every time (no stacked streams)
   useEffect(() => {
     if (currentScreenRef.current === null) return;
     if (screen === currentScreenRef.current) return;
 
     currentScreenRef.current = screen;
-
-    if (connectedRef.current && clientRef.current?.connected) {
-      // Smoothly transition prompts on the existing connection for adjacent screens
-      clientRef.current.updatePrompts(getPrompts(screen));
-    } else {
-      // Re-connect for major transitions (reveal)
-      initMusic(screen);
-    }
-  }, [screen, getPrompts, initMusic]);
+    void initMusic(screen);
+  }, [screen, initMusic]);
 
   // Adjust volume: quieter during interrogation so voice is clear
   useEffect(() => {
@@ -156,6 +155,7 @@ export default function MusicManager() {
   useEffect(() => {
     return () => {
       clientRef.current?.disconnect();
+      clientRef.current = null;
     };
   }, []);
 
