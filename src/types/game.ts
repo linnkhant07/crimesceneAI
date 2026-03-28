@@ -17,6 +17,7 @@ export interface Suspect {
   alibi: string;
   isGuilty: boolean;
   secretMotive: string;
+  portraitUrl?: string;
 }
 
 export interface CrimeCase {

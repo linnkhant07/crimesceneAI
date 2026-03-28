@@ -35,7 +35,9 @@ export default function AccusationScreen() {
 
         <div
           className={`grid gap-6 mb-12 ${
-            crimeCase.suspects.length === 2 ? "grid-cols-2 max-w-lg mx-auto" : "grid-cols-3"
+            crimeCase.suspects.length === 2
+              ? "grid-cols-2 max-w-lg mx-auto"
+              : "grid-cols-3"
           }`}
         >
           {crimeCase.suspects.map((suspect, i) => (
@@ -45,10 +47,18 @@ export default function AccusationScreen() {
               className="group border border-gray-800 hover:border-red-800/60 p-6 transition-all
                          hover:bg-red-500/5 cursor-pointer"
             >
-              <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center">
-                <span className="text-5xl opacity-50 group-hover:opacity-80 transition-opacity">
-                  {["👤", "🧑", "👩"][i % 3]}
-                </span>
+              <div className="w-full aspect-square bg-gray-900 mb-4 flex items-center justify-center overflow-hidden">
+                {suspect.portraitUrl ? (
+                  <img
+                    src={suspect.portraitUrl}
+                    alt={suspect.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                ) : (
+                  <span className="text-5xl opacity-50 group-hover:opacity-80 transition-opacity">
+                    {["👤", "🧑", "👩"][i % 3]}
+                  </span>
+                )}
               </div>
               <h4 className="text-gray-300 font-mono text-sm mb-2">
                 {suspect.name}

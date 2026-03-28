@@ -5,14 +5,20 @@ import { useGameStore } from "@/store/gameStore";
 
 const STEPS = [
   "Identifying victim...",
+  "Sketching suspects...",
   "Planting evidence...",
-  "Briefing suspects...",
   "Hiding the truth...",
   "Your case is ready.",
 ];
 
 export default function LoadingScreen() {
-  const { quizAnswers, setCrimeCase, setScreen } = useGameStore();
+  const {
+    quizAnswers,
+    setCrimeCase,
+    setSuspectPortrait,
+    setVideoOperationName,
+    setScreen,
+  } = useGameStore();
   const [currentStep, setCurrentStep] = useState(0);
   const [stepComplete, setStepComplete] = useState<boolean[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -23,8 +29,18 @@ export default function LoadingScreen() {
     if (fetchedRef.current || !quizAnswers) return;
     fetchedRef.current = true;
 
+    async function completeStep(index: number) {
+      setCurrentStep(index);
+      setStepComplete((prev) => {
+        const next = [...prev];
+        next[index] = true;
+        return next;
+      });
+    }
+
     async function generate() {
       try {
+        // Step 1: Generate crime case text
         const res = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -32,18 +48,67 @@ export default function LoadingScreen() {
         });
 
         if (!res.ok) throw new Error("Failed to generate case");
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
+        const caseData = await res.json();
+        if (caseData.error) throw new Error(caseData.error);
 
-        setCrimeCase(data);
+        setCrimeCase(caseData);
+        await completeStep(0);
 
-        for (let i = 0; i < STEPS.length; i++) {
-          await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
-          setCurrentStep(i);
-          setStepComplete((prev) => [...prev, true]);
+        // Step 2: Generate suspect portraits in parallel
+        const portraitPromises = caseData.suspects.map(
+          async (suspect: { name: string; appearance: string; occupation: string }, i: number) => {
+            try {
+              const portraitRes = await fetch("/api/generate-portrait", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: suspect.name,
+                  appearance: suspect.appearance,
+                  occupation: suspect.occupation,
+                  setting: quizAnswers!.setting,
+                }),
+              });
+              const { imageData } = await portraitRes.json();
+              if (imageData) {
+                setSuspectPortrait(i, imageData);
+              }
+            } catch {
+              // Portrait generation failed, continue without it
+            }
+          }
+        );
+
+        await Promise.all(portraitPromises);
+        await completeStep(1);
+
+        // Step 3: Start video generation (non-blocking)
+        try {
+          const videoRes = await fetch("/api/generate-video", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              crimeSceneDescription: caseData.crimeSceneDescription,
+              setting: quizAnswers!.setting,
+              location: caseData.location,
+            }),
+          });
+          const videoData = await videoRes.json();
+          if (videoData.operationId) {
+            setVideoOperationName(videoData.operationId);
+          }
+        } catch {
+          // Video generation failed, continue without it
         }
+        await completeStep(2);
 
-        await new Promise((r) => setTimeout(r, 1000));
+        // Step 4: Finalize
+        await new Promise((r) => setTimeout(r, 500));
+        await completeStep(3);
+
+        await new Promise((r) => setTimeout(r, 400));
+        await completeStep(4);
+
+        await new Promise((r) => setTimeout(r, 800));
         setScreen("casefile");
       } catch (err) {
         console.error(err);
@@ -55,9 +120,8 @@ export default function LoadingScreen() {
 
     setGlitchActive(true);
     setTimeout(() => setGlitchActive(false), 2000);
-
     generate();
-  }, [quizAnswers, setCrimeCase, setScreen]);
+  }, [quizAnswers, setCrimeCase, setSuspectPortrait, setVideoOperationName, setScreen]);
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0f] flex items-center justify-center overflow-hidden">
@@ -85,12 +149,6 @@ export default function LoadingScreen() {
                 className={`flex-1 ${
                   stepComplete[i] ? "text-gray-400" : "text-gray-600"
                 }`}
-                style={{
-                  animation:
-                    i === currentStep && !stepComplete[i]
-                      ? "typewriter 0.5s steps(20)"
-                      : undefined,
-                }}
               >
                 {step}
               </span>
