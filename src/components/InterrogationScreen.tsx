@@ -12,6 +12,13 @@ const SETTING_LABELS: Record<string, string> = {
   "small-town": "a quiet small town",
 };
 
+/** Never update Zustand (or other trees) inside a React setState updater — defer to next task */
+function runAfterPaint(fn: () => void) {
+  queueMicrotask(() => {
+    setTimeout(fn, 0);
+  });
+}
+
 export default function InterrogationScreen({
   topOffset = false,
   isActive = true,
@@ -95,11 +102,9 @@ export default function InterrogationScreen({
         const client = new LiveApiClient({
           onTranscriptUpdate: (role, text) => {
             if (role === "suspect") {
-              // Update the streaming bubble with the full accumulated text
               setStreamingText(text);
             } else {
-              // Count user turns for stats but don't display them
-              incrementQuestions();
+              runAfterPaint(() => incrementQuestions());
             }
           },
           onConnectionChange: (connected) => {
@@ -116,18 +121,21 @@ export default function InterrogationScreen({
           },
           onError: (error) => {
             console.error("Live API error:", error);
-            resetConnection(error);
+            runAfterPaint(() => resetConnection(error));
           },
           onAudioStart: () => setSuspectSpeaking(true),
           onAudioEnd: () => {
             setSuspectSpeaking(false);
-            // Commit the streamed text as a permanent message then clear the bubble
+            // Capture text, clear bubble, then commit to Zustand after React finishes this update
             setStreamingText((current) => {
-              if (current?.trim()) {
-                addMessage(suspectIdx, {
-                  role: "suspect",
-                  content: current.trim(),
-                  timestamp: Date.now(),
+              const saved = current?.trim() ?? "";
+              if (saved) {
+                runAfterPaint(() => {
+                  addMessage(suspectIdx, {
+                    role: "suspect",
+                    content: saved,
+                    timestamp: Date.now(),
+                  });
                 });
               }
               return null;

@@ -137,6 +137,7 @@ export class LiveApiClient {
     }
 
     const serverContent = data.serverContent as {
+      interrupted?: boolean;
       modelTurn?: { parts?: Array<{ inlineData?: { data: string; mimeType: string }; text?: string }> };
       inputTranscription?: { text: string };
       outputTranscription?: { text: string };
@@ -144,6 +145,10 @@ export class LiveApiClient {
     } | undefined;
 
     if (serverContent) {
+      if (serverContent.interrupted) {
+        this.clearPlaybackQueue();
+      }
+
       if (serverContent.modelTurn?.parts) {
         for (const part of serverContent.modelTurn.parts) {
           if (part.inlineData?.data) {
@@ -179,6 +184,12 @@ export class LiveApiClient {
     }
   }
 
+  private clearPlaybackQueue() {
+    this.audioQueue = [];
+    this.nextPlayTime = 0;
+    this.isPlaying = false;
+  }
+
   private handleAudioResponse(base64Data: string) {
     if (!this.isPlaying) {
       this.callbacks.onAudioStart();
@@ -206,6 +217,10 @@ export class LiveApiClient {
 
     if (!this.playbackContext) {
       this.playbackContext = new AudioContext({ sampleRate: OUTPUT_SAMPLE_RATE });
+    }
+
+    if (this.playbackContext.state === "suspended") {
+      void this.playbackContext.resume();
     }
 
     const chunk = this.audioQueue.shift()!;
@@ -298,6 +313,24 @@ export class LiveApiClient {
   stopRecording() {
     this.isRecording = false;
 
+    // Required when automatic voice activity detection is enabled (default): tells the server
+    // the mic stream ended so it can finalize the user turn and generate a reply. Without this,
+    // mic-only sessions (e.g. interrogation) often get no or sporadic model audio; crime-scene
+    // Hayes still works because sendText(image) triggers separate turns.
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(
+          JSON.stringify({
+            realtimeInput: {
+              audioStreamEnd: true,
+            },
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
     if (this.processorNode) {
       this.processorNode.disconnect();
       this.processorNode = null;
@@ -345,9 +378,7 @@ export class LiveApiClient {
       this.playbackContext = null;
     }
 
-    this.audioQueue = [];
-    this.isPlaying = false;
-    this.nextPlayTime = 0;
+    this.clearPlaybackQueue();
     this.currentTranscript = "";
     this.outputTranscript = "";
     this.setupComplete = false;
