@@ -66,12 +66,14 @@ export class LiveApiClient {
       // Do NOT call onConnectionChange yet — wait for setupComplete from server
     };
 
-    this.ws.onmessage = (event) => {
+    this.ws.onmessage = async (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const text = event.data instanceof Blob ? await event.data.text() : event.data;
+        const data = JSON.parse(text);
+        console.log("[LiveAPI] message from server:", JSON.stringify(data));
         this.handleServerMessage(data);
       } catch {
-        // ignore parse errors
+        console.log("[LiveAPI] raw message (not JSON):", event.data);
       }
     };
 
